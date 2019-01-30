@@ -1,5 +1,10 @@
 {
    "before_install" : "true",
+   "env" : {
+      "global" : {
+         "secure" : "QJ4OeG1gM03br0tCLVY/V3JAIzR3LTWSBibyjh4qVv5gGxg3EtthjzwW2mRIp3AcWz8Go3JYJt/Rm6MRe8LD6BRL1vwJbVe9cwzEsLEt4JqN3Wyq6fgeHZoKmKGpJJhzs09vpFw8so1GNoldhzRl5AaWnKVpdiZyZ90eRBWcivf0wQ4tWFTJhVFyIoc1fyr8oh4FMZfKWRMrZI2YD/fW5ewkiATT1xzIxmkOqg7inzGbqseuS0y0Ls3yy9\u002BY1M3g6TYg\u002BBCqs7q2YKXQ/e/lXqX3jWjIDEUW6SgcUnO32fA4T5W7RJNnbrugxMHKByoHVQHMaK7OmYOsUcdOawmyUZeiSuY0WsmOqBJ7\u002BU4HAdjmSyKwMPLMPCDLXvGlfFNGhZBpkaTavt7s8RrX6yxrkSZnVamQ2\u002ByshUkcSi785\u002BZDgk3rfFw1lemDKoli9faD33W1XljF\u002BtKVVMMY2tLC/bio3wsYoDYjn2CVEGg4JD5GHZJ1FX8cdH/d\u002B32wuqhALahu6wRNHJyQ\u002BntY0bXjIJovf3494DjoaBiHkQMDTRACrTRMEX4FOgit\u002BVSd1KZniRqAAQF94p5ojr3gKuz9slyJRt\u002BhmPdYBSSaTP4vSe3Zaq/zXVX/RhcKC8f7YiU9ICBMISq5xjNh56bqvQkcLXJKNbzxH\u002BR5AzivFuYph7g="
+      }
+   },
    "git" : {
       "submodules" : false
    },
@@ -8,6 +13,12 @@
       "include" : [
          {
             "stage" : "test"
+         },
+         {
+            "before_install" : "true",
+            "install" : "true",
+            "script" : "curl -f https://gist.githubusercontent.com/wakaba/ab553f86cd017e0cb28c6dbb5364b009/raw/travis-merge-job.pl | perl",
+            "stage" : "merge"
          }
       ]
    },
