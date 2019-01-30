@@ -1,0 +1,10 @@
+
+- "../../modules/promised-file" build tests
+- "../../modules/promise" build tests
+- "../../modules/streams" build tests
+- "../../modules/promised-command" build tests
+- "../../modules/web-resource" build tests
+- "../../modules/web-url" build tests
+- "../../modules/web-encodings" build tests
+- "../../modules/web-datetime" build tests
+- "../../modules/json-ps" build tests
