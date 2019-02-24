@@ -1,3 +1,5 @@
 Data::Dumper
+Digest::SHA
 File::Temp
 Path::Tiny
+Time::HiRes

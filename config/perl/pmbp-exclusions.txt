@@ -8,3 +8,8 @@
 - "../../modules/web-encodings" build tests
 - "../../modules/web-datetime" build tests
 - "../../modules/json-ps" build tests
+- "../../modules/dongry" build tests dbi datetime mp
+- "../../modules/json-functions-xs" build tests
+- "../../modules/json-functions-xs.2" build tests
+- "../../modules/ooutils" build tests classdiamondgenerator classregistry objectcachesmethod operationresponse
+- "../../modules/anyevent-mysql-client" build tests

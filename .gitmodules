@@ -38,3 +38,15 @@
 	path = modules/json-ps
 	url = https://github.com/wakaba/perl-json-ps
 	track = master
+[submodule "modules/dongry"]
+	path = modules/dongry
+	url = https://github.com/wakaba/dongry
+	track = master
+[submodule "modules/ooutils"]
+	path = modules/ooutils
+	url = https://github.com/wakaba/perl-ooutils
+	track = master
+[submodule "modules/anyevent-mysql-client"]
+	path = modules/anyevent-mysql-client
+	url = https://github.com/wakaba/perl-anyevent-mysql-client
+	track = master
