@@ -1,8 +1,8 @@
-AnyEvent~7.14
+AnyEvent~7.15
 AnyEvent::Fork~1.31
-AnyEvent::Handle
+AnyEvent::Socket
 Canary::Stability~2012
-Carp~1.50
+Carp::Heavy~1.50
 Cwd~3.75
 Data::Dumper~2.173
 Digest::SHA~6.02
