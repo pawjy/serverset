@@ -1,6 +1,6 @@
 AnyEvent~7.15
 AnyEvent::Fork~1.31
-Canary::Stability~2012
+Canary::Stability~2013
 Carp~1.50
 Cwd~3.75
 Data::Dumper~2.173
