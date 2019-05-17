@@ -1,6 +1,7 @@
 AnyEvent~7.15
 AnyEvent::Fork~1.31
-AnyEvent::Handle
+AnyEvent::HTTP~2.24
+AnyEvent::HTTPD~0.93
 Canary::Stability~2013
 Carp::Heavy~1.50
 Cwd~3.75
@@ -14,6 +15,7 @@ IO::FDPass~1.2
 MIME::Base64~3.15
 Math::BigInt~1.999816
 Net::SSLeay~1.88
+Object::Event~1.23
 Path::Tiny~0.108
 Proc::FastSpawn~1.2
 Scalar::Util~1.50
@@ -22,4 +24,5 @@ Term::ANSIColor~4.06
 Test::More~1.302164
 Time::HiRes~1.9760
 Time::Local~1.28
+URI~1.76
 common::sense~3.74
