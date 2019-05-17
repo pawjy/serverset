@@ -2,4 +2,5 @@ Data::Dumper
 Digest::SHA
 File::Temp
 Path::Tiny
+Socket
 Time::HiRes

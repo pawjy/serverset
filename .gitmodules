@@ -50,3 +50,7 @@
 	path = modules/anyevent-mysql-client
 	url = https://github.com/wakaba/perl-anyevent-mysql-client
 	track = master
+[submodule "modules/promised-docker-webdriver"]
+	path = modules/promised-docker-webdriver
+	url = https://github.com/wakaba/perl-promised-docker-webdriver
+	track = master

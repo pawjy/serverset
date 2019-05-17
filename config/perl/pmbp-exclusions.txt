@@ -13,3 +13,5 @@
 - "../../modules/json-functions-xs.2" build tests
 - "../../modules/ooutils" build tests classdiamondgenerator classregistry objectcachesmethod operationresponse
 - "../../modules/anyevent-mysql-client" build tests
+- "../../modules/promise.2" build tests
+- "../../modules/promised-command.2" build tests
