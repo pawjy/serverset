@@ -46,17 +46,21 @@ sub wait_for_http ($$%) {
   my $client = Web::Transport::BasicClient->new_from_url ($url, {
     last_resort_timeout => 1,
   });
+  my $checker = $args{check} || sub { 1 };
   return promised_cleanup {
     return $client->close;
   } promised_wait_until {
-    return (promised_timeout {
-      return $client->request (url => $url)->then (sub {
-        return 0 if $_[0]->is_network_error;
-        ## minio can return 503 before it becomes ready.
-        return 0 if $_[0]->status == 503;
-        return 1;
-      });
-    } 1)->catch (sub {
+    return Promise->resolve->then ($checker)->then (sub {
+      die "|check| failed" unless $_[0];
+      return (promised_timeout {
+        return $client->request (url => $url)->then (sub {
+          return 0 if $_[0]->is_network_error;
+          ## minio can return 503 before it becomes ready.
+          return 0 if $_[0]->status == 503;
+          return 1;
+        });
+      } 1);
+    })->catch (sub {
       $client->abort;
       $client = Web::Transport::BasicClient->new_from_url ($url);
       return 0;
