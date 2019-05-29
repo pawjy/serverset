@@ -138,6 +138,11 @@ sub _add_key_defs ($$) {
   } # _random_string
 }
 
+sub generate_key ($;%) {
+  my (undef, %args) = @_;
+  return (($args{prefix} // '') . _random_string ($args{length} // 30));
+} # generate_key
+
 sub _generate_keys ($) {
   my ($self) = @_;
   return Promise->resolve->then (sub {
@@ -150,7 +155,9 @@ sub _generate_keys ($) {
       if ($type eq 'id') {
         $self->{keys}->{$name} = int rand 1000000000;
       } elsif ($type eq 'key') {
-        $self->{keys}->{$name} = _random_string (30);
+        $self->{keys}->{$name} = $self->generate_key (length => 30);
+      } elsif ($type =~ /\Akey:(.+)\z/s) {
+        $self->{keys}->{$name} = $self->generate_key (length => 30, prefix => $1);
       } else {
         die "Unknown key type |$type|";
       }
@@ -392,6 +399,8 @@ sub run ($$$%) {
         return {data => $data, done => Promise->all (\@done)->finally (sub {
           return $pid_file->remove_tree if defined $pid_file;
         })->finally (sub {
+          return $self->_stop_docker_network;
+        })->finally (sub {
           return $cleanup->();
         })};
       })->catch (sub {
@@ -403,7 +412,10 @@ sub run ($$$%) {
     })->catch (sub {
       my $e = $_[0];
       $stop->();
-      return Promise->all (\@done)->finally (sub {
+      return Promise->all ([
+        @done,
+        $self->_stop_docker_network,
+      ])->finally (sub {
         return $cleanup->();
       })->finally (sub {
         die $e;
@@ -412,11 +424,51 @@ sub run ($$$%) {
   });
 } # run
 
+sub _start_docker_network ($) {
+  my ($ss) = @_;
+  return $ss->{docker_network} ||= Promise->resolve->then (sub {
+    $ss->{docker_network_name} = my $name = $ss->generate_key (prefix => 'ss-');
+    warn "$$: SS: Start docker network |$ss->{docker_network_name}|...\n" if $DEBUG;
+    my $cmd = Promised::Command->new ([
+      'docker', 'network', 'create',
+      '--subnet=192.168.100.0/16',
+      '--ip-range=192.168.100.0/16',
+      $name,
+    ]);
+    return $cmd->run->then (sub { return $cmd->wait })->then (sub {
+      die $_[0] unless $_[0]->exit_code == 0;
+    });
+  });
+} # _start_docker_network
+
+sub _stop_docker_network ($) {
+  my ($ss) = @_;
+  return unless defined $ss->{docker_network_name};
+  warn "$$: SS: Stop docker network |$ss->{docker_network_name}|...\n" if $DEBUG;
+  return promised_wait_until {
+    my $cmd = Promised::Command->new ([
+      'docker', 'network', 'rm', $ss->{docker_network_name},
+    ]);
+    $cmd->stderr (\my $stderr);
+    return $cmd->run->then (sub { return $cmd->wait })->then (sub {
+      if ($_[0]->exit_code == 1 and $stderr =~ /has active endpoints/) {
+        return not 'done';
+      }
+      die $_[0] unless $_[0]->exit_code == 0;
+      return 'done';
+    });
+  } timeout => 60*2, name => 'docker network rm';
+} # _stop_docker_network
+
+sub docker_network_name ($) {
+  return $_[0]->{docker_network_name} // die "Docker network is not enabled";
+} # docker_network_name
+
 1;
 
 =head1 LICENSE
 
-Copyright 2018 Wakaba <wakaba@suikawiki.org>.
+Copyright 2018-2019 Wakaba <wakaba@suikawiki.org>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
