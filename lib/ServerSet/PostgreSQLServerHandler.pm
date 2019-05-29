@@ -54,7 +54,6 @@ sub start ($$;%) {
         });
       } [keys %{$args->{databases} or {}}];
     })->then (sub {
-      my $port = $self->local_url ('postgresql')->port; # default: 5432
       return {
         image => 'quay.io/wakaba/postgresql',
         volumes => [
@@ -62,7 +61,7 @@ sub start ($$;%) {
           $self->path ('pg-schema')->absolute.':/docker-entrypoint-initdb.d',
         ],
         ports => [
-          $self->local_url ('postgresql')->hostport.':'.$port,
+          $self->local_url ('postgresql')->hostport.':5432',
         ],
         environment => {
           POSTGRES_USER => 'user',
@@ -70,9 +69,6 @@ sub start ($$;%) {
           POSTGRES_DB => $dbname[0] . $data->{_dbname_suffix},
           PGDATA => '/pgdata',
         },
-        command => [
-          '-c', 'port=' . $port,
-        ],
       };
     });
   }; # prepare

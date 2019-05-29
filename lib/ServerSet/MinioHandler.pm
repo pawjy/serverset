@@ -27,7 +27,6 @@ my $Methods = {
       Promised::File->new_from_path ($self->path ('minio_config'))->mkpath,
       Promised::File->new_from_path ($self->path ('minio_data'))->mkpath,
     ])->then (sub {
-      my $port = $self->local_url ('storage')->port; # default: 9000
       return {
             image => 'minio/minio',
             volumes => [
@@ -37,12 +36,12 @@ my $Methods = {
             user => "$<:$>",
             command => [
               'server',
-              '--address', "0.0.0.0:" . $port,
+              #'--address', "0.0.0.0:9000",
               '--config-dir', '/config',
               '/data'
             ],
             ports => [
-              $self->local_url ('storage')->hostport . ":" . $port,
+              $self->local_url ('storage')->hostport . ":9000",
             ],
           };
         });

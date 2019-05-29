@@ -30,18 +30,17 @@ sub start ($$;%) {
 
   $params->{prepare} = sub {
     my ($handler, $self, $args, $data) = @_;
-    my $port = $self->local_url ('mysqld')->port; # default: 3306
-    my $my_cnf = join "\n", '[mysqld]',
-        'user=mysql',
-        'default_authentication_plugin=mysql_native_password', # XXX
-        #'skip-networking',
-        'bind-address=0.0.0.0',
-        'port=' . $port,
-        'innodb_lock_wait_timeout=2',
-        'max_connections=1000',
-        #'sql_mode=', # old default
-        #'sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES', # 5.6 default
-    ;
+        my $my_cnf = join "\n", '[mysqld]',
+            'user=mysql',
+            'default_authentication_plugin=mysql_native_password', # XXX
+            #'skip-networking',
+            'bind-address=0.0.0.0',
+            'port=3306',
+            'innodb_lock_wait_timeout=2',
+            'max_connections=1000',
+            #'sql_mode=', # old default
+            #'sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES', # 5.6 default
+        ;
 
         my @dsn = (
           user => $self->key ('mysqld_user'),
@@ -76,12 +75,12 @@ sub start ($$;%) {
       return {
         image => $MySQLImage,
         volumes => [
-          $self->path ('my.cnf')->absolute . ':/etc/my.cnf',
-          $data_path->absolute . ':/var/lib/mysql',
-        ],
-        ports => [
-          $self->local_url ('mysqld')->hostport . ':'.$port,
-        ],
+              $self->path ('my.cnf')->absolute . ':/etc/my.cnf',
+              $data_path->absolute . ':/var/lib/mysql',
+            ],
+            ports => [
+              $self->local_url ('mysqld')->hostport . ':3306',
+            ],
             environment => {
               MYSQL_USER => $self->key ('mysqld_user'),
               MYSQL_PASSWORD => $self->key ('mysqld_password'),
