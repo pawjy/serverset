@@ -72,15 +72,17 @@ sub start ($$;%) {
       Promised::File->new_from_path ($data_path)->mkpath,
       $self->write_file ('my.cnf', $my_cnf),
     ])->then (sub {
+      my $net_host = $args->{docker_net_host};
       return {
         image => $MySQLImage,
         volumes => [
-              $self->path ('my.cnf')->absolute . ':/etc/my.cnf',
-              $data_path->absolute . ':/var/lib/mysql',
-            ],
-            ports => [
-              $self->local_url ('mysqld')->hostport . ':3306',
-            ],
+          $self->path ('my.cnf')->absolute . ':/etc/my.cnf',
+          $data_path->absolute . ':/var/lib/mysql',
+        ],
+        net_host => $net_host,
+        ports => ($net_host ? undef : [
+          $self->local_url ('mysqld')->hostport . ':3306',
+        ]),
             environment => {
               MYSQL_USER => $self->key ('mysqld_user'),
               MYSQL_PASSWORD => $self->key ('mysqld_password'),

@@ -54,21 +54,27 @@ sub start ($$;%) {
         });
       } [keys %{$args->{databases} or {}}];
     })->then (sub {
+      my $net_host = $args->{docker_net_host};
+      my $port = $self->local_url ('postgresql')->port; # default: 5432
       return {
         image => 'quay.io/wakaba/postgresql',
         volumes => [
           $data_path->absolute . ':/pgdata',
           $self->path ('pg-schema')->absolute.':/docker-entrypoint-initdb.d',
         ],
-        ports => [
-          $self->local_url ('postgresql')->hostport.':5432',
-        ],
+        net_host => $net_host,
+        ports => ($net_host ? undef : [
+          $self->local_url ('postgresql')->hostport.':'.$port,
+        ]),
         environment => {
           POSTGRES_USER => 'user',
           POSTGRES_PASSWORD => 'password',
           POSTGRES_DB => $dbname[0] . $data->{_dbname_suffix},
           PGDATA => '/pgdata',
         },
+        command => [
+          '-c', 'port=' . $port,
+        ],
       };
     });
   }; # prepare

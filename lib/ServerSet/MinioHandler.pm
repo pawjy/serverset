@@ -27,24 +27,27 @@ my $Methods = {
       Promised::File->new_from_path ($self->path ('minio_config'))->mkpath,
       Promised::File->new_from_path ($self->path ('minio_data'))->mkpath,
     ])->then (sub {
+      my $net_host = $args->{docker_net_host};
+      my $port = $self->local_url ('storage')->port; # default: 9000
       return {
-            image => 'minio/minio',
-            volumes => [
-              $self->path ('minio_config')->absolute . ':/config',
-              $self->path ('minio_data')->absolute . ':/data',
-            ],
-            user => "$<:$>",
-            command => [
-              'server',
-              #'--address', "0.0.0.0:9000",
-              '--config-dir', '/config',
-              '/data'
-            ],
-            ports => [
-              $self->local_url ('storage')->hostport . ":9000",
-            ],
-          };
-        });
+        image => 'minio/minio',
+        volumes => [
+          $self->path ('minio_config')->absolute . ':/config',
+          $self->path ('minio_data')->absolute . ':/data',
+        ],
+        user => "$<:$>",
+        command => [
+          'server',
+          '--address', "0.0.0.0:" . $port,
+          '--config-dir', '/config',
+          '/data'
+        ],
+        net_host => $net_host,
+        ports => ($net_host ? undef : [
+          $self->local_url ('storage')->hostport . ":" . $port,
+        ]),
+      };
+    });
   }, # prepare
   sniff_log => sub {
     my ($handler, $self, $log) = @_;
