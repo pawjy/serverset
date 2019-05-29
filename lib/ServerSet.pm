@@ -183,6 +183,7 @@ sub _register_server ($$;$$) {
   my ($self, $name, $host, $port) = @_;
   $self->{servers}->{$name} ||= do {
     $port //= _find_listenable_port;
+    $port = 3306 if $name eq 'mysqld';
     #$host //= Web::Host->parse_string ('127.0.0.1');
     $host //= Web::Host->parse_string ('0'); # need to bind all for container->port accesses
     my $local_url = Web::URL->parse_string
