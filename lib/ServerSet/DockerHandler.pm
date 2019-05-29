@@ -42,7 +42,7 @@ sub start ($$;%) {
   my $cancel_by_error = sub { };
 
   my $error;
-  return $ss->_start_docker_network->then (sub {
+  return Promise->resolve->then (sub {
     die $args{signal}->manakai_error if $args{signal}->aborted;
     return $params->{prepare}->($handler, $ss, \%args, $data); # or throw
   })->then (sub {
@@ -98,7 +98,6 @@ sub start ($$;%) {
             (map { ('-p', $_) } @{$d->{ports} or []}),
             (map { ('--user', $_) } grep { defined $_ } ($d->{user})),
             (map { ('-e', $_ . '=' . $d->{environment}->{$_}) } keys %{$d->{environment} or {}}),
-            '--net' => $ss->docker_network_name,
             '--restart' => {
               any => 'always',
               'on-failure' => 'on-failure',
