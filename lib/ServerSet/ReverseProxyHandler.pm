@@ -11,6 +11,7 @@ use Promised::File;
 use Web::Transport::ProxyServerConnection;
 use Web::Transport::PKI::Generator;
 use Web::Transport::PKI::Parser;
+use JSON::PS;
 
 use ServerSet::DefaultHandler;
 push our @ISA, qw(ServerSet::DefaultHandler);
@@ -58,6 +59,27 @@ sub start ($$;%) {
         push @{$args->{request}->{headers}}, ['x-forwarded-scheme', $url->scheme];
         $args->{client_options}->{server_connection}->{url} = $mapped;
         return $args;
+      } elsif ($url->host->to_ascii eq 'resolver.ss.test') {
+        my $u;
+        for (@{$args->{request}->{headers}}) {
+          if ($_->[2] eq 'x-url') {
+            $u = Web::URL->parse_string ($_->[1]);
+            last;
+          }
+        }
+        my $mapped = defined $u ? $map->{$u->host->to_ascii} : undef;
+        if (defined $mapped) {
+          return {response => {
+            status => 200,
+            headers => [['content-type', 'application/json;charset=utf-8']],
+            body => (perl2json_bytes {proxies => [
+              {protocol => 'http',
+               host => $mapped->host->to_ascii, port => $mapped->port},
+            ]}),
+          }};
+        } else {
+          return {response => {status => 404}};
+        }
       } else {
                 warn "proxy: ERROR: Unknown host in <@{[$url->stringify]}>\n";
                 my $body = 'Host not registered: |'.$url->host->to_ascii.'|';
@@ -187,3 +209,12 @@ sub start ($$;%) {
 } # start
 
 1;
+
+=head1 LICENSE
+
+Copyright 2018-2019 Wakaba <wakaba@suikawiki.org>.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
