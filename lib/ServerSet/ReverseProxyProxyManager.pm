@@ -25,7 +25,10 @@ sub get_proxies_for_url ($$;%) {
     });
     return $resolve_client->request (
       path => [],
-      headers => {'x-url' => $url->stringify},
+      headers => {
+        'x-url' => $url->stringify,
+        'x-proxy-url' => $self->{http_proxy}->stringify,
+      },
     )->then (sub {
       my $res = $_[0];
       if ($res->status == 200) {
