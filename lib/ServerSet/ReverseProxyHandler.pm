@@ -61,14 +61,20 @@ sub start ($$;%) {
         return $args;
       } elsif ($url->host->to_ascii eq 'resolver.ss.test') {
         my $u;
+        my $t;
         for (@{$args->{request}->{headers}}) {
           if ($_->[2] eq 'x-url') {
             $u = Web::URL->parse_string ($_->[1]);
-            last;
+          } elsif ($_->[2] eq 'x-proxy-url') {
+            $t = Web::URL->parse_string ($_->[1]);
           }
         }
         my $mapped = defined $u ? $map->{$u->host->to_ascii} : undef;
         if (defined $mapped) {
+          if (defined $t and $mapped->host->to_ascii eq '0.0.0.0') {
+            $mapped = Web::URL->parse_string
+                ('http://' . $t->host->to_ascii . ':' . $mapped->port);
+          }
           return {response => {
             status => 200,
             headers => [['content-type', 'application/json;charset=utf-8']],
