@@ -60,6 +60,7 @@ my $Methods = {
           ]),
           environment => {
             %$envs,
+            PORT => $port,
             APP_CONFIG => '/config.json',
 
             SQL_DEBUG => $args->{debug} || 0,
