@@ -47,14 +47,17 @@ my $Methods = {
           dsn => $data->{docker_dsn},
         }),
       ])->then (sub {
+        my $net_host = $args->{docker_net_host};
+        my $port = $self->local_url ('apploach')->port; # default: 8080
         return {
           image => 'quay.io/wakaba/apploach',
           volumes => [
             $self->path ('apploach-config.json')->absolute . ':/config.json',
           ],
-          ports => [
-            $self->local_url ('apploach')->hostport.':8080',
-          ],
+          net_host => $net_host,
+          ports => ($net_host ? undef : [
+            $self->local_url ('apploach')->hostport.':'.$port,
+          ]),
           environment => {
             %$envs,
             APP_CONFIG => '/config.json',

@@ -56,16 +56,20 @@ my $Methods = {
           alt_dsns => {master => {account => $data->{docker_dsn}}},
         }),
       ])->then (sub {
+        my $net_host = $args->{docker_net_host};
+        my $port = $self->local_url ('accounts')->port; # default: 8080
         return {
           image => 'quay.io/wakaba/accounts',
           volumes => [
             $self->path ('accounts')->absolute . ':/config',
           ],
-          ports => [
-            $self->local_url ('accounts')->hostport.':8080',
-          ],
+          net_host => $net_host,
+          ports => ($net_host ? undef : [
+            $self->local_url ('accounts')->hostport.':'.$port,
+          ]),
           environment => {
             %$envs,
+            PORT => $port,
             APP_CONFIG => '/config/config.json',
             SQL_DEBUG => $args->{debug} || 0,
             WEBUA_DEBUG => $args->{debug} || 0,
