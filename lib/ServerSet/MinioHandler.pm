@@ -35,7 +35,7 @@ my $Methods = {
           $self->path ('minio_config')->absolute . ':/config',
           $self->path ('minio_data')->absolute . ':/data',
         ],
-        user => "$<:$>",
+        user => ($args->{no_set_uid} ? undef : "$<:$>"),
         command => [
           'server',
           '--address', "0.0.0.0:" . $port,
