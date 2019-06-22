@@ -17,7 +17,7 @@
 [submodule "modules/web-resource"]
 	path = modules/web-resource
 	url = https://github.com/manakai/perl-web-resource
-	track = transport
+	track = master
 [submodule "modules/web-url"]
 	path = modules/web-url
 	url = https://github.com/manakai/perl-web-url
