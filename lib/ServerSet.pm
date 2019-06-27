@@ -151,6 +151,10 @@ sub _generate_keys ($) {
         $self->{keys}->{$name} = int rand 1000000000;
       } elsif ($type eq 'key') {
         $self->{keys}->{$name} = _random_string (30);
+      } elsif ($type eq 'text') {
+        $self->{keys}->{$name} = _random_string (30); # XXX
+      } elsif ($type eq 'email') {
+        $self->{keys}->{$name} = _random_string (30) . '@' . _random_string (10) . '.test';
       } else {
         die "Unknown key type |$type|";
       }
