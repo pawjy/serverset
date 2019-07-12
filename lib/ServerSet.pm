@@ -151,6 +151,8 @@ sub _generate_keys ($) {
         $self->{keys}->{$name} = int rand 1000000000;
       } elsif ($type eq 'key') {
         $self->{keys}->{$name} = _random_string (30);
+      } elsif ($type =~ m{\Akey:,([0-9]+)\z}) {
+        $self->{keys}->{$name} = _random_string (0+$1);
       } elsif ($type eq 'text') {
         $self->{keys}->{$name} = _random_string (30); # XXX
       } elsif ($type eq 'email') {
