@@ -6,6 +6,7 @@ use Promised::Flow;
 use Promised::File;
 use Dongry::SQL qw(quote);
 use AnyEvent::MySQL::Client;
+use Web::Encoding;
 
 use ServerSet::Migration;
 use ServerSet::DockerHandler;
@@ -111,7 +112,7 @@ sub start ($$;%) {
             hostname => $dsn->{host}->to_ascii,
             port => $dsn->{port},
             username => 'root',
-            password => $self->key ('mysqld_root_password'),
+            password => (encode_web_utf8 $self->key ('mysqld_root_password')),
             database => 'mysql',
           )->then (sub {
             return 1;
@@ -122,16 +123,16 @@ sub start ($$;%) {
       } timeout => 60*4, signal => $signal;
     })->then (sub {
           return $client->query (
-            sprintf q{create user '%s'@'%s' identified by '%s'},
+            encode_web_utf8 sprintf q{create user '%s'@'%s' identified by '%s'},
                 $self->key ('mysqld_user'), '%',
                 $self->key ('mysqld_password'),
           );
         })->then (sub {
           return promised_for {
-            my $name = shift . $data->{_dbname_suffix};
+            my $name = encode_web_utf8 (shift . $data->{_dbname_suffix});
             return $client->query ('create database if not exists ' . quote $name)->then (sub {
               return $client->query (
-                sprintf q{grant all on %s.* to '%s'@'%s'},
+                encode_web_utf8 sprintf q{grant all on %s.* to '%s'@'%s'},
                     quote $name,
                     $self->key ('mysqld_user'), '%',
               );
