@@ -1,10 +1,10 @@
-AnyEvent~7.15
+AnyEvent~7.16
 AnyEvent::Fork~1.31
 AnyEvent::HTTP~2.24
 AnyEvent::HTTPD~0.93
-AnyEvent::IO
+AnyEvent::Handle
 Canary::Stability~2013
-Carp~1.50
+Carp::Heavy~1.50
 Cwd~3.75
 Data::Dumper~2.173
 Digest::SHA~6.02
