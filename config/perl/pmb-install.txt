@@ -2,8 +2,9 @@ AnyEvent~7.17
 AnyEvent::Fork~1.31
 AnyEvent::HTTP~2.24
 AnyEvent::HTTPD~0.93
+AnyEvent::Util
 Canary::Stability~2013
-Carp~1.50
+Carp::Heavy~1.50
 Cwd~3.75
 Data::Dumper~2.173
 Digest::SHA~6.02
@@ -13,7 +14,7 @@ File::Path~2.16
 File::Temp~0.2309
 IO::FDPass~1.2
 MIME::Base64~3.15
-Math::BigInt~1.999817
+Math::BigInt~1.999818
 Net::SSLeay~1.88
 Object::Event~1.23
 Path::Tiny~0.108
