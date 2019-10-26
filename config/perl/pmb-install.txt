@@ -2,7 +2,6 @@ AnyEvent~7.17
 AnyEvent::Fork~1.31
 AnyEvent::HTTP~2.24
 AnyEvent::HTTPD~0.93
-AnyEvent::Handle
 Canary::Stability~2013
 Carp::Heavy~1.50
 Cwd~3.75
@@ -19,7 +18,7 @@ Net::SSLeay~1.88
 Object::Event~1.23
 Path::Tiny~0.108
 Proc::FastSpawn~1.2
-Scalar::Util~1.52
+Scalar::Util~1.53
 Socket~2.029
 Term::ANSIColor~4.06
 Test::More~1.302168
