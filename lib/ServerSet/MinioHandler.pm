@@ -68,9 +68,15 @@ my $Methods = {
           return (($_[0]->[1] ? $f2 : $f1)->read_byte_string);
         })->then (sub {
           my $config = json_bytes2perl $_[0];
-          $data->{aws4}->[0] = $config->{credential}->{accessKey};
-          $data->{aws4}->[1] = $config->{credential}->{secretKey};
-          $data->{aws4}->[2] = $config->{region};
+          if (defined $config->{region}->{_}) {
+            $data->{aws4}->[0] = [grep { $_->{key} eq 'access_key' } @{$config->{credentials}->{_}}]->[0]->{value};
+            $data->{aws4}->[1] = [grep { $_->{key} eq 'secret_key' } @{$config->{credentials}->{_}}]->[0]->{value};
+            $data->{aws4}->[2] = [grep { $_->{key} eq 'name' } @{$config->{region}->{_}}]->[0]->{value};
+          } else { # old
+            $data->{aws4}->[0] = $config->{credential}->{accessKey};
+            $data->{aws4}->[1] = $config->{credential}->{secretKey};
+            $data->{aws4}->[2] = $config->{region};
+          }
           return defined $data->{aws4}->[0] &&
                  defined $data->{aws4}->[1] &&
                  defined $data->{aws4}->[2];
