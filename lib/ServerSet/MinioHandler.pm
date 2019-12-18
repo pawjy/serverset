@@ -36,6 +36,9 @@ my $Methods = {
           $self->path ('minio_data')->absolute . ':/data',
         ],
         user => ($args->{no_set_uid} ? undef : "$<:$>"),
+        environment => {
+          MINIO_BROWSER => 'off',
+        },
         command => [
           'server',
           '--address', "0.0.0.0:" . $port,
