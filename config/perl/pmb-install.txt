@@ -3,13 +3,12 @@ AnyEvent::FileLock~0.06
 AnyEvent::Fork~1.31
 AnyEvent::HTTP~2.24
 AnyEvent::HTTPD~0.93
-AnyEvent::Util
 Canary::Stability~2013
 Carp~1.50
 Cwd~3.75
 Data::Dumper~2.173
 Digest::SHA~6.02
-Encode~3.03
+Encode~3.04
 Exporter::Lite~0.08
 File::Path~2.16
 File::Temp~0.2309
@@ -24,7 +23,7 @@ Proc::FastSpawn~1.2
 Scalar::Util~1.54
 Socket~2.029
 Term::ANSIColor~5.01
-Test::More~1.302171
+Test::More~1.302172
 Time::HiRes~1.9760
 Time::Local~1.30
 URI~1.76
