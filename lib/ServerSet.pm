@@ -16,30 +16,10 @@ use JSON::PS;
 use Web::Host;
 use Web::URL;
 use Web::Transport::BasicClient;
+use Web::Transport::FindPort;
 
 my $DEBUG = $ENV{SS_DEBUG};
 my $DEBUG_SERVERS = {map { $_ => 1 } split /,/, $ENV{SS_DEBUG_SERVERS} // ''};
-
-{
-  use Socket;
-  sub _is_listenable_port ($) {
-    my $port = $_[0] or return 0;
-    socket(my $svr,PF_INET,SOCK_STREAM,getprotobyname('tcp'))||die"socket: $!";
-    setsockopt($svr,SOL_SOCKET,SO_REUSEADDR,pack("l",1))||die "setsockopt: $!";
-    bind($svr, sockaddr_in($port, INADDR_ANY)) || return 0;
-    listen($svr, SOMAXCONN) || return 0;
-    close($svr);
-    return 1;
-  } # _is_listenable_port
-  my $EphemeralStart = 1024; my $EphemeralEnd = 5000; my $not = {};
-  sub _find_listenable_port () {
-    for (1..10000) {
-      my$port=int rand($EphemeralEnd-$EphemeralStart);next if$not->{$port}++;
-      if (_is_listenable_port $port) { $not->{$port}++; return $port }
-    }
-    die "Listenable port not found";
-  } # _find_listenable_port
-}
 
 sub wait_for_http ($$%) {
   my (undef, $url, %args) = @_;
@@ -181,7 +161,7 @@ sub set_hostport ($$$$) {
 sub _register_server ($$;$$) {
   my ($self, $name, $host, $port) = @_;
   $self->{servers}->{$name} ||= do {
-    $port //= _find_listenable_port;
+    $port //= find_listenable_port;
     #$host //= Web::Host->parse_string ('127.0.0.1');
     $host //= Web::Host->parse_string ('0'); # need to bind all for container->port accesses
     my $local_url = Web::URL->parse_string
@@ -422,7 +402,7 @@ sub run ($$$%) {
 
 =head1 LICENSE
 
-Copyright 2018-2019 Wakaba <wakaba@suikawiki.org>.
+Copyright 2018-2020 Wakaba <wakaba@suikawiki.org>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
