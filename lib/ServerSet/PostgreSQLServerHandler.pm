@@ -43,7 +43,7 @@ sub start ($$;%) {
           ('Pg', $data->{docker_dsn_options}->{$dbname});
     } # $dbname
 
-    my $data_path = $args->{data_path} // $self->path ('pg-data');
+    my $data_path = $args->{data_path} // $self->path ('pg-data4');
     return Promised::File->new_from_path ($data_path)->mkpath->then (sub {
       return promised_for {
         my $name = shift;
@@ -53,6 +53,11 @@ sub start ($$;%) {
           return Promised::File->new_from_path ($new_path)->write_byte_string ($_[0]);
         });
       } [keys %{$args->{databases} or {}}];
+    })->then (sub {
+      my $init_path = $self->path ('pg-schema')->child ('init.sh');
+      return Promised::File->new_from_path ($init_path)->write_byte_string (q{#!/bin/bash
+        echo "host all all all trust" > /pgdata/pg_hba.conf
+      });
     })->then (sub {
       my $net_host = $args->{docker_net_host};
       my $port = $self->local_url ('postgresql')->port; # default: 5432
