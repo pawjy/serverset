@@ -181,7 +181,14 @@ sub start ($$;%) {
           ee => 1,
         )->then (sub {
           my $cert = $_[0];
-          return [$ca_cert, $ca_rsa, $cert, $rsa];
+          my $ee_cert_path = $ss->path ('ee-cert.pem');
+          my $ee_key_path = $ss->path ('ee-key.pem');
+          return Promise->all ([
+            Promised::File->new_from_path ($ee_cert_path)->write_byte_string ($cert->to_pem),
+            Promised::File->new_from_path ($ee_key_path)->write_byte_string ($rsa->to_pem),
+          ])->then (sub {
+            return [$ca_cert, $ca_rsa, $cert, $rsa];
+          });
         });
       });
     });
