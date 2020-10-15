@@ -336,6 +336,12 @@ sub run ($$$%) {
         $data_send->{$name}->($data) if defined $data_send->{$name};
         push @done, $done;
         delete $waitings->{$name};
+        if ($data->{failed}) {
+          warn sprintf "========== Logs of |%s| ======\n%s\n====== /Logs of |%s| ======\n",
+              $name,
+              $handlers->{$name}->logs,
+              $name;
+        }
         return undef;
       })->catch (sub {
         $error //= $_[0];

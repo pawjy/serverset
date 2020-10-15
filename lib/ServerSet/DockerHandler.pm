@@ -159,8 +159,13 @@ sub start ($$;%) {
     });
   })->catch (sub {
     my $e = $error // $_[0];
+    $handler->{logs} .= "\n\n->start failed: |$e|";
     $args{signal}->manakai_onabort (sub { });
     $cancel_by_error = sub { };
+    if ($args{allow_failure}) {
+      $handler->{logs} .= "\nallow_failure is set; skip this server";
+      return [{failed => 1}, Promise->resolve (undef)];
+    }
     return $stop->()->catch (sub { })->then (sub { die $e });
   });
 } # start
