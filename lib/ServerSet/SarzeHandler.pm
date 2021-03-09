@@ -27,6 +27,7 @@ sub start ($$;%) {
   })->then (sub {
     my $sarze_params = $_[0];
 
+    local %ENV = (%ENV, %{$sarze_params->{envs} or {}});
     return Sarze->start (
       %$sarze_params,
       debug => $args{debug},
