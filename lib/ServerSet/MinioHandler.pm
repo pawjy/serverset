@@ -35,6 +35,7 @@ my $Methods = {
           $self->path ('minio_config')->absolute . ':/config',
           $self->path ('minio_data')->absolute . ':/data',
         ],
+        no_tty => 1,
         user => ($args->{no_set_uid} ? undef : "$<:$>"),
         environment => {
           MINIO_BROWSER => 'off',
