@@ -92,6 +92,7 @@ sub start ($$;%) {
         my $docker = Promised::Command::Docker->new (
           image => $d->{image},
           command => $d->{command},
+          no_tty => $d->{no_tty},
           docker_run_options => [
             '--name' => $container_name,
             (map { ('-v', $_) } @{$d->{volumes} or []}),
