@@ -1,0 +1,19 @@
+pawjy/serverset
+~~~~~~~~~~~~~~~
+
+A set of Perl modules for running a set of server processes (for
+development and testing of Web applications).
+
+* Author
+
+Wakaba <wakaba@suikawiki.org>.
+
+* History
+
+This repository was located at <https://github.com/wakaba/serverset>
+until February 2, 2022, then moved to
+<https://github.com/pawjy/serverset>.
+
+* License
+
+See |LICENSE| file.
