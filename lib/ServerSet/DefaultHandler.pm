@@ -25,4 +25,16 @@ sub onstatechange ($;$) {
 
 sub logs ($) { return $_[0]->{logs} }
 
+sub heartbeat ($) { }
+sub heartbeat_interval ($) { undef }
+
 1;
+
+=head1 LICENSE
+
+Copyright 2018-2022 Wakaba <wakaba@suikawiki.org>.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut

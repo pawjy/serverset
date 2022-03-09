@@ -309,9 +309,9 @@ sub run ($$$%) {
     
     $args{signal}->manakai_onabort (sub { $stop->(undef) })
         if defined $args{signal};
-    push @signal, Promised::Command::Signals->add_handler (INT => $stop);
-    push @signal, Promised::Command::Signals->add_handler (TERM => $stop);
-    push @signal, Promised::Command::Signals->add_handler (KILL => $stop);
+    push @signal, Promised::Command::Signals->add_handler (INT => $stop, name => 'ServerSet');
+    push @signal, Promised::Command::Signals->add_handler (TERM => $stop, name => 'ServerSet');
+    push @signal, Promised::Command::Signals->add_handler (KILL => $stop, name => 'ServerSet');
     
     my $gen = $self->_generate_keys;
 
@@ -334,7 +334,12 @@ sub run ($$$%) {
         my ($data, $done) = @{$_[0]}; 
         warn "$$: SS: |$name|: Started\n" if $DEBUG;
         $data_send->{$name}->($data) if defined $data_send->{$name};
-        push @done, $done;
+        push @done, Promise->resolve ($done)->then (sub {
+          warn "$$: SS: |$name|: Done\n" if $DEBUG;
+        }, sub {
+          my $e = shift;
+          warn "$$: SS: |$name|: Done with error: $e\n";
+        });
         delete $waitings->{$name};
         if ($data->{failed}) {
           warn sprintf "========== Logs of |%s| ======\n%s\n====== /Logs of |%s| ======\n",
@@ -342,6 +347,28 @@ sub run ($$$%) {
               $handlers->{$name}->logs,
               $name;
         }
+
+        my $hb_interval = $handlers->{$name}->heartbeat_interval;
+        if ($hb_interval) {
+          $acs->{$name, 'heartbeat'} = AbortController->new;
+          push @done, (promised_wait_until {
+            return Promise->resolve->then (sub {
+              $handlers->{$name}->heartbeat;
+            })->then (sub {
+              return not 'done';
+            }, sub {
+              my $error = shift;
+              warn "$$: SS: |$name|: Heartbear failed ($error)\n";
+              $stop->(undef);
+              return undef;
+            });
+          } interval => $hb_interval, signal => $acs->{$name, 'heartbeat'}->signal)->catch (sub {
+            my $e = shift;
+            return if UNIVERSAL::isa ($e, 'Promise::AbortError');
+            die $e;
+          });
+        } # hearbeat
+        
         return undef;
       })->catch (sub {
         $error //= $_[0];
@@ -408,7 +435,7 @@ sub run ($$$%) {
 
 =head1 LICENSE
 
-Copyright 2018-2020 Wakaba <wakaba@suikawiki.org>.
+Copyright 2018-2022 Wakaba <wakaba@suikawiki.org>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

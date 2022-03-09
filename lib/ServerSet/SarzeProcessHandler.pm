@@ -47,7 +47,10 @@ sub start ($$;%) {
     })->catch (sub {
       my $e = $_[0];
       $sarze->send_signal ('TERM');
-      return $sarze->wait->finally (sub { die $e });
+      return $sarze->wait->catch (sub {
+        my $x = shift;
+        #warn $x;
+      })->finally (sub { die $e });
     });
   });
 } # start
