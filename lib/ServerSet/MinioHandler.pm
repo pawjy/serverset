@@ -62,7 +62,7 @@ my $Methods = {
     my ($handler, $ss, $args, $data, $signal, $docker) = @_;
 
     return $docker->get_container_ipaddr->then (sub {
-      my $url = Web::URL->parse_string ('http://' . $_[0] . ':' . $data->{_storage_port});
+      my $url = Web::URL->parse_string ('http://' . $_[0] . ':' . $data->{_storage_port}) // die "Bad docker container IP address |$_[0]|";
       $ss->set_actual_url ('storage', $url);
     });
   }, # beforewait
@@ -78,7 +78,14 @@ my $Methods = {
           die "|storage| is not running" unless $_[0];
           return Promise->all ([$f1->is_file, $f2->is_file]);
         })->then (sub {
-          return (($_[0]->[1] ? $f2 : $f1)->read_byte_string);
+          if ($_[0]->[1] or $_[0]->[2]) {
+            return (($_[0]->[1] ? $f2 : $f1)->read_byte_string);
+          } else {
+            return $handler->cat_file ('/data/.minio.sys/config/config.json')->then (sub {
+              my $results = $_[0];
+              return $results->{0} // 'null';
+            });
+          }
         })->then (sub {
           my $config = json_bytes2perl $_[0];
           if (defined $config->{region}->{_}) {

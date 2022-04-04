@@ -17,7 +17,7 @@ sub dockerhost () { $dockerhost }
 
 sub new_from_params ($$) {
   my ($class, $params) = @_;
-  return bless {params => $params, container_names => [],
+  return bless {params => $params, container_names => {},
                 logs => ''}, $class;
 } # new_from_params
 
@@ -111,7 +111,7 @@ sub start ($$;%) {
         $docker->signal_before_destruction ('TERM');
         $docker->logs ($logs);
         $dockers->{$name} = $docker;
-        push @{$handler->{container_names}}, $container_name;
+        $handler->{container_names}->{$name} = $container_name;
         return $docker->start;
       } [keys %$services];
     })->then (sub {
@@ -182,7 +182,7 @@ sub start ($$;%) {
 sub check_running ($) {
   my $self = shift;
   my $return = 1;
-  my $names = [@{$self->{container_names}}];
+  my $names = [values %{$self->{container_names}}];
   return Promise->resolve->then (sub {
     return promised_until {
       my $container_name = shift @$names;
@@ -205,5 +205,34 @@ sub check_running ($) {
     return $return;
   });
 } # check_running
+
+sub cat_file ($$) {
+  my ($self, $path) = @_;
+  my $return = {};
+  return Promise->resolve->then (sub {
+    my $names = [keys %{$self->{container_names}}];
+    return promised_until {
+      my $name = shift @$names;
+      return 'done' unless defined $name;
+      my $container_name = $self->{container_names}->{$name};
+      my $cmd = Promised::Command->new ([
+        'docker', 'exec', '-it', $container_name, 'cat', $path,
+      ]);
+      $cmd->stdout (\(my $stdout = ''));
+      $cmd->stderr (\(my $stderr = ''));
+      return $cmd->run->then (sub { return $cmd->wait })->then (sub {
+        my $result = $_[0];
+        if ($result->exit_code == 0) {
+          $return->{$name} = $stdout;
+        } else {
+          $return->{$name} = undef;
+        }
+        return not 'done';
+      });
+    };
+  })->then (sub {
+    return $return;
+  });
+} # cat_file
 
 1;
