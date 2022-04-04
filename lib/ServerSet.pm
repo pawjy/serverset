@@ -200,6 +200,27 @@ sub local_url ($$) {
   return $self->{servers}->{$name}->{local_url};
 } # local_url
 
+sub actual_url ($$) {
+  my ($self, $name) = @_;
+  $self->_register_server ($name);
+  return $self->{servers}->{$name}->{actual_url} // die "No actual URL for |$name| registered";
+} # actual_url
+
+sub set_actual_url ($$$;%) {
+  my ($self, $name, $url, %args) = @_;
+  $self->_register_server ($name);
+  $self->{servers}->{$name}->{actual_url} = $url;
+  if ($args{only}) {
+    $self->{servers}->{$name}->{local_url} = $url;
+  }
+  $self->{proxy_map}->{"$name.server.test"} = $url;
+  if ($name eq 'proxy') {
+    $self->{servers}->{$name}->{actual_envs} = {
+      http_proxy => $url->get_origin->to_ascii,
+    };
+  }
+} # set_actual_url
+
 sub set_local_envs ($$$) {
   my ($self, $name, $dest) = @_;
   $self->_register_server ($name);
@@ -213,6 +234,18 @@ sub set_docker_envs ($$$) {
   my $envs = $self->{servers}->{$name}->{docker_envs} // die "No |$name| envs";
   $dest->{$_} = $envs->{$_} for keys %$envs;
 } # set_docker_envs
+
+sub set_actual_envs ($$$) {
+  my ($self, $name, $dest) = @_;
+  $self->_register_server ($name);
+  my $envs = $self->{servers}->{$name}->{actual_envs} // die "No |$name| actual envs";
+  $dest->{$_} = $envs->{$_} for keys %$envs;
+} # set_actual_envs
+
+sub set_proxy_alias ($$$) {
+  my ($self, $new_name, $old_name) = @_;
+  $self->{proxy_aliases}->{$new_name} = $old_name;
+} # set_proxy_alias
 
 sub run ($$$%) {
   my ($class, $server_defs, $prep_params, %args) = @_;
@@ -231,6 +264,7 @@ sub run ($$$%) {
 
   my $self = bless {
     proxy_map => {},
+    proxy_aliases => {},
     data_root_path => $args{data_root_path},
     keys => {},
     key_defs => {},
