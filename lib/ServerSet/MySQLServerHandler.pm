@@ -104,7 +104,7 @@ sub start ($$;%) {
     my ($handler, $self, $args, $data, $signal, $docker) = @_;
 
     return $docker->get_container_ipaddr->then (sub {
-      my $ipaddr = Web::Host->parse_string (shift);
+      my $ipaddr = Web::Host->parse_string ($_[0]) // die "Failed to get container IP address |$_[0]|";
       
       for my $dbname (keys %{$data->{local_dsn_options} or {}}) {
         $data->{actual_dsn_options}->{$dbname} = {
