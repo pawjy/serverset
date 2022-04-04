@@ -169,7 +169,7 @@ sub start ($$;%) {
               my $e = $_[0];
               die "Failed to open |$path|: $e";
             })->then (sub {
-              return ServerSet::Migration->run ($_[0] => $data->{local_dsn}->{$name}, dump => 1);
+              return ServerSet::Migration->run ($_[0] => $data->{actual_dsn}->{$name}, dump => 1);
             })->then (sub {
               return $self->write_file ("mysqld-$name.sql" => $_[0]);
             });
