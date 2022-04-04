@@ -48,10 +48,12 @@ sub start ($$;%) {
     $cv->begin;
 
     my $map = $ss->{proxy_map};
+    my $aliases = $ss->{proxy_aliases};
     my $code = sub {
       my $args = $_[0];
       my $url = $args->{request}->{url};
-      my $mapped = $map->{$url->host->to_ascii};
+      my $aliased = $aliases->{$url->host->to_ascii};
+      my $mapped = $map->{$aliased // $url->host->to_ascii};
       if (defined $mapped) {
         my $x = $url->stringify;
         $x =~ s/^https:/http:/g;
@@ -86,16 +88,16 @@ sub start ($$;%) {
         } else {
           return {response => {status => 404}};
         }
-      } else {
-                warn "proxy: ERROR: Unknown host in <@{[$url->stringify]}>\n";
-                my $body = 'Host not registered: |'.$url->host->to_ascii.'|';
-                return {response => {
-                  status => 504,
-                  status_text => $body,
-                  headers => [['content-type', 'text/plain;charset=utf-8']],
-                  body => $body,
-                }} unless $args{allow_forwarding};
-              }
+      } else { # unknown host
+        warn "proxy: ERROR: Unknown host in <@{[$url->stringify]}>\n";
+        my $body = 'Host not registered: |'.$url->host->to_ascii.'|';
+        return {response => {
+          status => 504,
+          status_text => $body,
+          headers => [['content-type', 'text/plain;charset=utf-8']],
+          body => $body,
+        }} unless $args{allow_forwarding};
+      }
       return $args;
     }; # $code
 

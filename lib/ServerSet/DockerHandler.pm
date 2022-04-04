@@ -71,12 +71,12 @@ sub start ($$;%) {
     }; # $logs
     $args{signal}->manakai_onabort ($stop);
 
-    my $dockers = [];
+    my $dockers = {};
     $stop_dockers = sub {
       return Promise->all ([
-        map { $_->stop } @$dockers
+        map { $_->stop } values %$dockers
       ])->finally (sub {
-        $dockers = [];
+        $dockers = {};
       });
     }; # $stop_dockers
 
@@ -110,7 +110,7 @@ sub start ($$;%) {
         $docker->propagate_signal (1);
         $docker->signal_before_destruction ('TERM');
         $docker->logs ($logs);
-        push @$dockers, $docker;
+        $dockers->{$name} = $docker;
         push @{$handler->{container_names}}, $container_name;
         return $docker->start;
       } [keys %$services];
@@ -125,6 +125,14 @@ sub start ($$;%) {
       };
 
       return Promise->resolve->then (sub {
+        die $error if defined $error;
+        die $args{signal}->manakai_error if $args{signal}->aborted;
+
+        my $ac = AbortController->new;
+        push @$acs, $ac;
+        $statechange->($handler, 'waiting');
+        ($params->{beforewait} or sub { })->($handler, $ss, \%args, $data, $ac->signal, $dockers->{0}); # or throw
+      })->then (sub {
         die $error if defined $error;
         die $args{signal}->manakai_error if $args{signal}->aborted;
 

@@ -1,12 +1,14 @@
 package ServerSet::MySQLServerHandler;
 use strict;
 use warnings;
+our $VERSION = '2.0';
 use Promise;
 use Promised::Flow;
 use Promised::File;
 use Dongry::SQL qw(quote);
 use AnyEvent::MySQL::Client;
 use Web::Encoding;
+use Web::Host;
 
 use ServerSet::Migration;
 use ServerSet::DockerHandler;
@@ -29,26 +31,27 @@ sub start ($$;%) {
   my $handler = shift;
   my $params = $handler->{params};
 
+  my $mysql_port = 3306;
   $params->{prepare} = sub {
     my ($handler, $self, $args, $data) = @_;
-        my $my_cnf = join "\n", '[mysqld]',
-            'user=mysql',
-            'default_authentication_plugin=mysql_native_password', # XXX
-            #'skip-networking',
-            'bind-address=0.0.0.0',
-            'port=3306',
-            'innodb_lock_wait_timeout=2',
-            'max_connections=1000',
-            #'sql_mode=', # old default
-            #'sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES', # 5.6 default
-        ;
+    my $my_cnf = join "\n", '[mysqld]',
+        'user=mysql',
+        'default_authentication_plugin=mysql_native_password', # XXX
+        #'skip-networking',
+        'bind-address=0.0.0.0',
+        'port=' . $mysql_port,
+        'innodb_lock_wait_timeout=2',
+        'max_connections=1000',
+        #'sql_mode=', # old default
+        #'sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES', # 5.6 default
+    ;
 
-        my @dsn = (
-          user => $self->key ('mysqld_user'),
-          password => $self->key ('mysqld_password'),
-          host => $self->local_url ('mysqld')->host,
-          port => $self->local_url ('mysqld')->port,
-        );
+    my @dsn = (
+      user => $self->key ('mysqld_user'),
+      password => $self->key ('mysqld_password'),
+      host => $self->local_url ('mysqld')->host,
+      port => $self->local_url ('mysqld')->port,
+    );
         my @dbname = keys %{$args->{databases}};
         @dbname = ('test') unless @dbname;
         $data->{_dbname_suffix} = $args->{database_name_suffix} // '';
@@ -82,7 +85,7 @@ sub start ($$;%) {
         ],
         net_host => $net_host,
         ports => ($net_host ? undef : [
-          $self->local_url ('mysqld')->hostport . ':3306',
+          $self->local_url ('mysqld')->hostport . ':' . $mysql_port,
         ]),
             environment => {
               MYSQL_USER => $self->key ('mysqld_user'),
@@ -96,13 +99,31 @@ sub start ($$;%) {
           };
     });
   }; # prepare
+
+  $params->{beforewait} = sub {
+    my ($handler, $self, $args, $data, $signal, $docker) = @_;
+
+    return $docker->get_container_ipaddr->then (sub {
+      my $ipaddr = Web::Host->parse_string (shift);
+      
+      for my $dbname (keys %{$data->{local_dsn_options} or {}}) {
+        $data->{actual_dsn_options}->{$dbname} = {
+          %{$data->{local_dsn_options}->{$dbname}},
+          host => $ipaddr,
+          port => $mysql_port,
+        };
+        $data->{actual_dsn}->{$dbname} = $self->dsn
+            ('mysql', $data->{actual_dsn_options}->{$dbname});
+      } # $dbname
+    });
+  }; # beforewait
   
   $params->{wait} = sub {
     my ($handler, $self, $args, $data, $signal) = @_;
     my $client;
     return Promise->resolve->then (sub {
       require AnyEvent::MySQL::Client::ShowLog if $ENV{SQL_DEBUG};
-      my $dsn = $data->{local_dsn_options}->{[keys %{$args->{databases}}]->[0] // 'test'};
+      my $dsn = $data->{actual_dsn_options}->{[keys %{$args->{databases}}]->[0] // 'test'};
       return promised_wait_until {
         return $handler->check_running->then (sub {
           die "|mysqld| is not running" unless $_[0];
@@ -158,5 +179,10 @@ sub start ($$;%) {
 
   return $handler->SUPER::start (@_);
 } # start
+
+sub heartbeat_interval ($) { 6 }
+sub heartbeat ($) {
+  warn "XXX heartbeat";
+}
 
 1;
