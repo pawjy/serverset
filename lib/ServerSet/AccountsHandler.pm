@@ -56,8 +56,8 @@ my $Methods = {
           %$config,
           'auth.bearer' => $self->key ('accounts_key'),
           servers_json_file => 'servers.json',
-          dsns => {account => $data->{docker_dsn}},
-          alt_dsns => {master => {account => $data->{docker_dsn}}},
+          dsns => {account => $data->{actual_dsn}},
+          alt_dsns => {master => {account => $data->{actual_dsn}}},
         }),
       ])->then (sub {
         my $net_host = $args->{docker_net_host};
