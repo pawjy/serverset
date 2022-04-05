@@ -48,7 +48,7 @@ my $Methods = {
         $self->write_json ('apploach-config.json', {
           %$config,
           bearer => $self->key ('apploach_bearer'),
-          dsn => $data->{docker_dsn},
+          dsn => $data->{actual_dsn},
         }),
       ])->then (sub {
         my $net_host = $args->{docker_net_host};
