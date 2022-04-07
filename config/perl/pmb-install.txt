@@ -9,7 +9,7 @@ Carp::Heavy~1.50
 Cwd~3.75
 Data::Dumper~2.183
 Digest::SHA~6.02
-Encode~3.16
+Encode~3.17
 Exporter::Lite~0.09
 File::Path~2.18
 File::Temp~0.2311
