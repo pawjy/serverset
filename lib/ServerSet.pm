@@ -385,18 +385,20 @@ sub run ($$$%) {
         my $hb_interval = $handlers->{$name}->heartbeat_interval;
         if ($hb_interval) {
           $acs->{$name, 'heartbeat'} = AbortController->new;
-          push @done, (promised_wait_until {
-            return Promise->resolve->then (sub {
-              $handlers->{$name}->heartbeat;
-            })->then (sub {
-              return not 'done';
-            }, sub {
-              my $error = shift;
-              warn "$$: SS: |$name|: Heartbear failed ($error)\n";
-              $stop->(undef);
-              return undef;
-            });
-          } interval => $hb_interval, signal => $acs->{$name, 'heartbeat'}->signal)->catch (sub {
+          push @done, promised_sleep ($hb_interval)->then (sub {
+            return promised_wait_until {
+              return Promise->resolve->then (sub {
+                return $handlers->{$name}->heartbeat ($self, $data);
+              })->then (sub {
+                return not 'done';
+              }, sub {
+                my $error = shift;
+                warn "$$: SS: |$name|: Heartbear failed ($error)\n";
+                $stop->(undef);
+                return undef;
+              });
+            } interval => $hb_interval, signal => $acs->{$name, 'heartbeat'}->signal;
+          })->catch (sub {
             my $e = shift;
             return if UNIVERSAL::isa ($e, 'Promise::AbortError');
             die $e;

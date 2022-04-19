@@ -5,6 +5,9 @@ our $VERSION = '2.0';
 use Promise;
 use Promised::Flow;
 use Promised::File;
+use Promised::Command;
+use ArrayBuffer;
+use DataView;
 use Dongry::SQL qw(quote);
 use AnyEvent::MySQL::Client;
 use Web::Encoding;
@@ -180,9 +183,61 @@ sub start ($$;%) {
   return $handler->SUPER::start (@_);
 } # start
 
-sub heartbeat_interval ($) { 6 }
-sub heartbeat ($) {
-  warn "XXX heartbeat";
-}
+sub heartbeat_interval ($) { 600 }
+sub heartbeat ($$$) {
+  my ($handler, $ss, $data) = @_;
+
+  my $dsn = $data->{actual_dsn_options}->{[keys %{$data->{actual_dsn_options}}]->[0]};
+  return unless defined $dsn;
+  my $cmd = Promised::Command->new ([
+    'mysqldump',
+    '-A',
+    '-h', $dsn->{host}->to_ascii,
+    '-P', $dsn->{port},
+    '-u', $dsn->{user},
+    '--password=' . $dsn->{password},
+  ]);
+
+  my $path = $ss->path ('mysql-dump.sql');
+  my $file = Promised::File->new_from_path ($path);
+  my $ws = $file->write_bytes;
+  my $w = $ws->get_writer;
+
+  my @wait;
+  my $so_rs = $cmd->get_stdout_stream;
+  my $so_r = $so_rs->get_reader ('byob');
+  push @wait, promised_until {
+    return $so_r->read (DataView->new (ArrayBuffer->new (1024)))->then (sub {
+      if ($_[0]->{done}) {
+        push @wait, $w->close;
+        return 'done';
+      }
+      return $w->write ($_[0]->{value})->then (sub {
+        return not 'done';
+      });
+    });
+  };
+
+  push @wait, $cmd->run->then (sub {
+    return $cmd->wait;
+  })->then (sub {
+    my $return = $_[0];
+    die $return unless $return->exit_code == 0;
+  });
+
+  return Promise->all (\@wait)->catch (sub {
+    my $e = $_[0];
+    warn __PACKAGE__ . ": $e";
+  });
+} # heartbeat
 
 1;
+
+=head1 LICENSE
+
+Copyright 2018-2022 Wakaba <wakaba@suikawiki.org>.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
