@@ -385,7 +385,7 @@ sub run ($$$%) {
         my $hb_interval = $handlers->{$name}->heartbeat_interval;
         if ($hb_interval) {
           $acs->{$name, 'heartbeat'} = AbortController->new;
-          push @done, promised_sleep ($hb_interval)->then (sub {
+          push @done, promised_sleep ($hb_interval, signal => $acs->{$name, 'heartbeat'}->signal)->then (sub {
             return promised_wait_until {
               return Promise->resolve->then (sub {
                 return $handlers->{$name}->heartbeat ($self, $data);
