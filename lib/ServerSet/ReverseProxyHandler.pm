@@ -16,9 +16,10 @@ use JSON::PS;
 use ServerSet::DefaultHandler;
 push our @ISA, qw(ServerSet::DefaultHandler);
 
-sub new_from_params ($$) {
-  my ($class, $params) = @_;
-  return bless {params => $params, logs => ''}, $class;
+sub new_from_params ($$$) {
+  my ($class, $h_name, $params) = @_;
+  return bless {handler_name => $h_name, params => $params,
+                logs => ''}, $class;
 } # new_from_params
 
 sub start ($$;%) {

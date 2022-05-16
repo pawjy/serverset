@@ -307,26 +307,27 @@ sub run ($$$%) {
       $data_send->{_}->({})
           if not defined $servers->{_} or $servers->{_}->{disabled};
     }
-    for my $name (keys %$servers) {
-      next if $servers->{$name}->{disabled};
+    for my $h_name (keys %$servers) {
+      next if $servers->{$h_name}->{disabled};
 
-      my $def = $server_defs->{$name} or die "Server |$name| not defined";
+      my $i_name = $h_name . '-' . int (10000 * rand);
+      my $def = $server_defs->{$h_name} or die "Server |$h_name| not defined";
       my $class = $def->{handler} // 'ServerSet::DefaultHandler';
       eval qq{ require $class } or die $@;
-      $handlers->{$name} = $class->new_from_params ($def);
+      $handlers->{$i_name} = $class->new_from_params ($h_name, $def);
 
-      $acs->{$name} = AbortController->new;
-      $servers->{$name}->{signal} = $acs->{$name}->signal;
+      $acs->{$i_name} = AbortController->new;
+      #$servers->{$h_name}->{signal} = $acs->{$i_name}->signal;
       for my $other (@{$def->{requires} or []}) {
         die "Bad server |$other|" unless defined $servers->{$other};
         unless (defined $data_send->{$other}) {
           ($data_receive->{$other}, $data_send->{$other}) = promised_cv;
           $data_send->{$other}->(undef) if $servers->{$other}->{disabled};
         }
-        $servers->{$name}->{'receive_' . $other . '_data'} = $data_receive->{$other};
+        $servers->{$h_name}->{'receive_' . $other . '_data'} = $data_receive->{$other};
       }
 
-      $self->_add_key_defs ($handlers->{$name}->get_keys);
+      $self->_add_key_defs ($handlers->{$i_name}->get_keys);
     } # $servers
 
     my @started;
@@ -352,52 +353,54 @@ sub run ($$$%) {
     my $error;
     my $waitings = {};
     my $some_failed = 0;
-    for my $name (keys %$handlers) {
+    for my $i_name (keys %$handlers) {
+      my $h_name = $handlers->{$i_name}->handler_name;
       my $started = $gen->then (sub {
-        warn "$$: SS: |$name|: Start...\n" if $DEBUG;
-        $waitings->{$name} = 'starting';
-        $handlers->{$name}->onstatechange (sub { $waitings->{$name} = $_[1] });
+        warn "$$: SS: |$i_name|: Start...\n" if $DEBUG;
+        $waitings->{$i_name} = 'starting';
+        $handlers->{$i_name}->onstatechange (sub { $waitings->{$i_name} = $_[1] });
         return promised_timeout {
-          return $handlers->{$name}->start (
+          return $handlers->{$i_name}->start (
             $self,
-            %{$servers->{$name}},
-            debug => $DEBUG_SERVERS->{$name} || $DEBUG_SERVERS->{all},
+            %{$servers->{$h_name}},
+            signal => $acs->{$i_name}->signal,
+            debug => $DEBUG_SERVERS->{$h_name} || $DEBUG_SERVERS->{all},
           );
         } 60*5;
       })->then (sub {
         my ($data, $done) = @{$_[0]}; 
-        warn "$$: SS: |$name|: Started\n" if $DEBUG;
-        $data_send->{$name}->($data) if defined $data_send->{$name};
+        warn "$$: SS: |$i_name|: Started\n" if $DEBUG;
+        $data_send->{$h_name}->($data) if defined $data_send->{$h_name};
         push @done, Promise->resolve ($done)->then (sub {
-          warn "$$: SS: |$name|: Done\n" if $DEBUG;
+          warn "$$: SS: |$i_name|: Done\n" if $DEBUG;
         }, sub {
           my $e = shift;
-          warn "$$: SS: |$name|: Done with error: $e\n";
+          warn "$$: SS: |$i_name|: Done with error: $e\n";
         });
-        delete $waitings->{$name};
+        delete $waitings->{$i_name};
         if ($data->{failed}) {
           warn sprintf "========== Logs of |%s| ======\n%s\n====== /Logs of |%s| ======\n",
-              $name,
-              $handlers->{$name}->logs,
-              $name;
+              $i_name,
+              $handlers->{$i_name}->logs,
+              $i_name;
         }
 
-        my $hb_interval = $handlers->{$name}->heartbeat_interval;
+        my $hb_interval = $handlers->{$i_name}->heartbeat_interval;
         if ($hb_interval) {
-          $acs->{$name, 'heartbeat'} = AbortController->new;
-          push @done, promised_sleep ($hb_interval, signal => $acs->{$name, 'heartbeat'}->signal)->then (sub {
+          $acs->{$i_name, 'heartbeat'} = AbortController->new;
+          push @done, promised_sleep ($hb_interval, signal => $acs->{$i_name, 'heartbeat'}->signal)->then (sub {
             return promised_wait_until {
               return Promise->resolve->then (sub {
-                return $handlers->{$name}->heartbeat ($self, $data);
+                return $handlers->{$i_name}->heartbeat ($self, $data);
               })->then (sub {
                 return not 'done';
               }, sub {
                 my $error = shift;
-                warn "$$: SS: |$name|: Heartbear failed ($error)\n";
+                warn "$$: SS: |$i_name|: Heartbear failed ($error)\n";
                 $stop->(undef);
                 return undef;
               });
-            } interval => $hb_interval, signal => $acs->{$name, 'heartbeat'}->signal;
+            } interval => $hb_interval, signal => $acs->{$i_name, 'heartbeat'}->signal;
           })->catch (sub {
             my $e = shift;
             return if UNIVERSAL::isa ($e, 'Promise::AbortError');
@@ -408,22 +411,22 @@ sub run ($$$%) {
         return undef;
       })->catch (sub {
         $error //= $_[0];
-        warn "$$: SS: |$name|: Failed to start ($error)\n" if $DEBUG;
-        delete $waitings->{$name};
+        warn "$$: SS: |$i_name|: Failed to start ($error)\n" if $DEBUG;
+        delete $waitings->{$i_name};
         unless ($some_failed) {
           warn sprintf "========== Logs of |%s| ======\n%s\n====== /Logs of |%s| ======\n",
-              $name,
-              $handlers->{$name}->logs,
-              $name;
+              $i_name,
+              $handlers->{$i_name}->logs,
+              $i_name;
         }
         $some_failed = 1;
         $stop->(undef);
-        $data_send->{$name}->(Promise->reject ($_[0]))
-            if defined $data_send->{$name};
+        $data_send->{$h_name}->(Promise->reject ($_[0]))
+            if defined $data_send->{$h_name};
       });
       push @started, $started;
       push @done, $started;
-    } # $name
+    } # $h_name
 
     my $repeat = $DEBUG ? AE::timer 0, 10, sub {
       return unless keys %$waitings;
