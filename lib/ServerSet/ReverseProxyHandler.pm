@@ -219,7 +219,7 @@ sub start ($$;%) {
     return [$data, Promise->from_cv ($cv)];
   })->catch (sub {
     my $e = $_[0];
-    $args{signal}->manakai_onabort->();
+    ($args{signal}->manakai_onabort or sub { })->();
     die $e;
   });
 } # start

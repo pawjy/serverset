@@ -27,11 +27,13 @@ sub get_keys ($) {
     mysqld_user => 'key',
     mysqld_password => 'key',
     mysqld_root_password => 'key',
+    mysqld_dir_name_id => 'id',
   };
 } # get_keys
 
 sub start ($$;%) {
   my $handler = shift;
+  my (undef, %s_args) = @_;
   my $params = $handler->{params};
 
   my $mysql_port = 3306;
@@ -74,11 +76,18 @@ sub start ($$;%) {
               = $self->dsn ('mysql', $data->{docker_dsn_options}->{$dbname});
         } # $dbname
 
-    my $data_path = $args->{data_path} // $self->path ('mysqld-data');
-    return Promise->all ([
-      Promised::File->new_from_path ($data_path)->mkpath,
-      $self->write_file ('my.cnf', $my_cnf),
-    ])->then (sub {
+    my $data_path;
+    return Promise->resolve->then (sub {
+      return $self->regenerate_keys (['mysqld_dir_name_id'])
+          if $s_args{try_count} > 1;
+    })->then (sub {
+      $data_path = $self->path ('mysqld-data-' . $self->key ('mysqld_dir_name_id'));
+      
+      return Promise->all ([
+        Promised::File->new_from_path ($data_path)->mkpath,
+        $self->write_file ('my.cnf', $my_cnf),
+      ]);
+    })->then (sub {
       my $net_host = $args->{docker_net_host};
       return {
         image => $MySQLImage,
@@ -141,7 +150,19 @@ sub start ($$;%) {
           )->then (sub {
             return 1;
           })->catch (sub {
-            return $client->disconnect->catch (sub { })->then (sub { 0 });
+            return $client->disconnect->catch (sub { })->then (sub {
+              my $log = $handler->logs;
+              # 2022-05-16  2:07:20 0 [ERROR] InnoDB: Cannot open datafile './ibdata1'
+              # 2022-05-16  2:29:08 0 [ERROR] InnoDB: Unable to lock ./ibdata1 error: 11
+              # [ERROR] mysqld: Can't lock aria control file '/var/lib/mysql/aria_log_control' for exclusive use, error: 11. Will retry for 30 seconds
+              if ($log =~ m{\[ERROR\] InnoDB: Cannot open datafile './ibdata1'} or
+                  $log =~ m{\[ERROR\] InnoDB: Unable to lock ./ibdata1 error: 11} or
+                  $log =~ m{\[ERROR\] mysqld: Can't lock aria control file '/var/lib/mysql/aria_log_control' for exclusive use, error: 11. Will retry for 30 seconds}) {
+                die bless {message => "MySQL database is broken"},
+                    'ServerSet::RestartableError';
+              }
+              return 0;
+            });
           });
         });
       } timeout => 60*4, signal => $signal;
@@ -164,7 +185,16 @@ sub start ($$;%) {
           } [keys %{$args->{databases} or {}}];
         })->finally (sub {
           return $client->disconnect if defined $client;
-        })->then (sub {
+    })->then (sub {
+      if ($s_args{try_count} > 1) {
+        my $path = $self->path ('mysql-dump.sql');
+        my $file = Promised::File->new_from_path ($path);
+        return $file->read_byte_string->then (sub {
+          return ServerSet::Migration->run_dumped
+              ($_[0] => $data->{actual_dsn});
+        }, sub { });
+      }
+    })->then (sub {
           return promised_for {
             my $name = shift;
             my $path = $args->{databases}->{$name};

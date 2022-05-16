@@ -118,14 +118,14 @@ sub _add_key_defs ($$) {
   } # _random_string
 }
 
-sub _generate_keys ($) {
-  my ($self) = @_;
+sub _generate_keys ($$) {
+  my ($self, $discard) = @_;
   return Promise->resolve->then (sub {
     return $self->read_json ('keys.json');
   })->then (sub {
     $self->{keys} = $_[0];
     for my $name (keys %{$self->{key_defs}}) {
-      next if defined $self->{keys}->{$name};
+      next if defined $self->{keys}->{$name} and not $discard->{$name};
       my $type = $self->{key_defs}->{$name} // '';
       if ($type eq 'id') {
         $self->{keys}->{$name} = int rand 1000000000;
@@ -145,6 +145,11 @@ sub _generate_keys ($) {
     return $self->write_json ('keys.json', $self->{keys});
   });
 } # _generate_keys
+
+sub regenerate_keys ($$) {
+  my ($self, $key_names) = @_;
+  return $self->_generate_keys ({map { $_ => 1 } @$key_names});
+} # regenerate_keys
 
 sub key ($$) {
   my ($self, $name) = @_;
@@ -302,13 +307,16 @@ sub run ($$$%) {
     my $acs = {};
     my $data_send = {};
     my $data_receive = {};
+    my $try_counts = {};
     {
       ($data_receive->{_}, $data_send->{_}) = promised_cv;
       $data_send->{_}->({})
           if not defined $servers->{_} or $servers->{_}->{disabled};
     }
-    for my $h_name (keys %$servers) {
-      next if $servers->{$h_name}->{disabled};
+    my $create_instance = sub {
+      my $h_name = shift;
+      $try_counts->{$h_name}++;
+      return undef if $servers->{$h_name}->{disabled};
 
       my $i_name = $h_name . '-' . int (10000 * rand);
       my $def = $server_defs->{$h_name} or die "Server |$h_name| not defined";
@@ -327,8 +335,12 @@ sub run ($$$%) {
         $servers->{$h_name}->{'receive_' . $other . '_data'} = $data_receive->{$other};
       }
 
-      $self->_add_key_defs ($handlers->{$i_name}->get_keys);
-    } # $servers
+      $self->_add_key_defs ($handlers->{$i_name}->get_keys)
+          if $try_counts->{$h_name} == 1;
+
+      return $i_name;
+    }; # $create_instance
+    my $run_instance;
 
     my @started;
     my @done;
@@ -344,19 +356,22 @@ sub run ($$$%) {
     
     $args{signal}->manakai_onabort (sub { $stop->(undef) })
         if defined $args{signal};
-    push @signal, Promised::Command::Signals->add_handler (INT => $stop, name => 'ServerSet');
-    push @signal, Promised::Command::Signals->add_handler (TERM => $stop, name => 'ServerSet');
-    push @signal, Promised::Command::Signals->add_handler (KILL => $stop, name => 'ServerSet');
+    push @signal, Promised::Command::Signals->add_handler
+        (INT => $stop, name => 'ServerSet');
+    push @signal, Promised::Command::Signals->add_handler
+        (TERM => $stop, name => 'ServerSet');
+    push @signal, Promised::Command::Signals->add_handler
+        (KILL => $stop, name => 'ServerSet');
     
-    my $gen = $self->_generate_keys;
-
+    my $gen;
     my $error;
     my $waitings = {};
     my $some_failed = 0;
-    for my $i_name (keys %$handlers) {
+    $run_instance = sub {
+      my $i_name = shift;
       my $h_name = $handlers->{$i_name}->handler_name;
       my $started = $gen->then (sub {
-        warn "$$: SS: |$i_name|: Start...\n" if $DEBUG;
+        warn "$$: SS: |$i_name|: Start ($try_counts->{$h_name})...\n" if $DEBUG;
         $waitings->{$i_name} = 'starting';
         $handlers->{$i_name}->onstatechange (sub { $waitings->{$i_name} = $_[1] });
         return promised_timeout {
@@ -364,6 +379,7 @@ sub run ($$$%) {
             $self,
             %{$servers->{$h_name}},
             signal => $acs->{$i_name}->signal,
+            try_count => $try_counts->{$h_name},
             debug => $DEBUG_SERVERS->{$h_name} || $DEBUG_SERVERS->{all},
           );
         } 60*5;
@@ -410,9 +426,21 @@ sub run ($$$%) {
         
         return undef;
       })->catch (sub {
-        $error //= $_[0];
-        warn "$$: SS: |$i_name|: Failed to start ($error)\n" if $DEBUG;
+        my $e = $_[0];
+        warn "$$: SS: |$i_name|: Failed to start ($e)\n" if $DEBUG;
         delete $waitings->{$i_name};
+        if (UNIVERSAL::isa ($_[0], 'ServerSet::RestartableError')) {
+          if ($try_counts->{$h_name} <= 1) {
+            $acs->{$i_name}->abort;
+            warn "$$: SS: |$h_name|: Retry...\n" if $DEBUG;
+            my $i_name = $create_instance->($h_name);
+            $run_instance->($i_name);
+            return;
+          } else {
+            $e = $e->unwrap;
+          }
+        }
+        $error //= $e;
         unless ($some_failed) {
           warn sprintf "========== Logs of |%s| ======\n%s\n====== /Logs of |%s| ======\n",
               $i_name,
@@ -421,11 +449,19 @@ sub run ($$$%) {
         }
         $some_failed = 1;
         $stop->(undef);
-        $data_send->{$h_name}->(Promise->reject ($_[0]))
+        $data_send->{$h_name}->(Promise->reject ($e))
             if defined $data_send->{$h_name};
       });
       push @started, $started;
       push @done, $started;
+    }; # $run_instance
+
+    for my $h_name (keys %$servers) {
+      $create_instance->($h_name);
+    } # $servers
+    $gen = $self->_generate_keys ({});
+    for my $i_name (keys %$handlers) {
+      $run_instance->($i_name);
     } # $h_name
 
     my $repeat = $DEBUG ? AE::timer 0, 10, sub {
@@ -450,12 +486,14 @@ sub run ($$$%) {
         return {data => $data, done => Promise->all (\@done)->finally (sub {
           return $pid_file->remove_tree if defined $pid_file;
         })->finally (sub {
+          undef $run_instance;
           return $cleanup->();
         })};
       })->catch (sub {
         my $e = $_[0];
         return $pid_file->remove_tree->finally (sub { die $e })
             if defined $pid_file;
+        undef $run_instance;
         die $e;
       });
     })->catch (sub {
@@ -464,11 +502,24 @@ sub run ($$$%) {
       return Promise->all (\@done)->finally (sub {
         return $cleanup->();
       })->finally (sub {
+        undef $run_instance;
         die $e;
       });
     });
   });
 } # run
+
+package ServerSet::RestartableError;
+
+use overload '""' => 'stringify', fallback => 1;
+
+sub unwrap ($) {
+  return $_[0]->{message} || die;
+}
+
+sub stringify ($) {
+  return 'RestartableError: ' . $_[0]->{message};
+}
 
 1;
 

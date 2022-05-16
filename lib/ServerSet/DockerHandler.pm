@@ -21,7 +21,7 @@ sub new_from_params ($$$) {
                 container_names => {}, logs => ''}, $class;
 } # new_from_params
 
-sub start ($$;%) {
+sub start ($$%) {
   my ($handler, $ss, %args) = @_;
   my $data = {};
 
