@@ -118,14 +118,14 @@ sub _add_key_defs ($$) {
   } # _random_string
 }
 
-sub _generate_keys ($) {
-  my ($self) = @_;
+sub _generate_keys ($$) {
+  my ($self, $discard) = @_;
   return Promise->resolve->then (sub {
     return $self->read_json ('keys.json');
   })->then (sub {
     $self->{keys} = $_[0];
     for my $name (keys %{$self->{key_defs}}) {
-      next if defined $self->{keys}->{$name};
+      next if defined $self->{keys}->{$name} and not $discard->{$name};
       my $type = $self->{key_defs}->{$name} // '';
       if ($type eq 'id') {
         $self->{keys}->{$name} = int rand 1000000000;
@@ -145,6 +145,11 @@ sub _generate_keys ($) {
     return $self->write_json ('keys.json', $self->{keys});
   });
 } # _generate_keys
+
+sub regenerate_keys ($$) {
+  my ($self, $key_names) = @_;
+  return $self->_generate_keys ({map { $_ => 1 } @$key_names});
+} # regenerate_keys
 
 sub key ($$) {
   my ($self, $name) = @_;
@@ -302,32 +307,40 @@ sub run ($$$%) {
     my $acs = {};
     my $data_send = {};
     my $data_receive = {};
+    my $try_counts = {};
     {
       ($data_receive->{_}, $data_send->{_}) = promised_cv;
       $data_send->{_}->({})
           if not defined $servers->{_} or $servers->{_}->{disabled};
     }
-    for my $name (keys %$servers) {
-      next if $servers->{$name}->{disabled};
+    my $create_instance = sub {
+      my $h_name = shift;
+      $try_counts->{$h_name}++;
+      return undef if $servers->{$h_name}->{disabled};
 
-      my $def = $server_defs->{$name} or die "Server |$name| not defined";
+      my $i_name = $h_name . '-' . int (10000 * rand);
+      my $def = $server_defs->{$h_name} or die "Server |$h_name| not defined";
       my $class = $def->{handler} // 'ServerSet::DefaultHandler';
       eval qq{ require $class } or die $@;
-      $handlers->{$name} = $class->new_from_params ($def);
+      $handlers->{$i_name} = $class->new_from_params ($h_name, $def);
 
-      $acs->{$name} = AbortController->new;
-      $servers->{$name}->{signal} = $acs->{$name}->signal;
+      $acs->{$i_name} = AbortController->new;
+      #$servers->{$h_name}->{signal} = $acs->{$i_name}->signal;
       for my $other (@{$def->{requires} or []}) {
         die "Bad server |$other|" unless defined $servers->{$other};
         unless (defined $data_send->{$other}) {
           ($data_receive->{$other}, $data_send->{$other}) = promised_cv;
           $data_send->{$other}->(undef) if $servers->{$other}->{disabled};
         }
-        $servers->{$name}->{'receive_' . $other . '_data'} = $data_receive->{$other};
+        $servers->{$h_name}->{'receive_' . $other . '_data'} = $data_receive->{$other};
       }
 
-      $self->_add_key_defs ($handlers->{$name}->get_keys);
-    } # $servers
+      $self->_add_key_defs ($handlers->{$i_name}->get_keys)
+          if $try_counts->{$h_name} == 1;
+
+      return $i_name;
+    }; # $create_instance
+    my $run_instance;
 
     my @started;
     my @done;
@@ -343,61 +356,67 @@ sub run ($$$%) {
     
     $args{signal}->manakai_onabort (sub { $stop->(undef) })
         if defined $args{signal};
-    push @signal, Promised::Command::Signals->add_handler (INT => $stop, name => 'ServerSet');
-    push @signal, Promised::Command::Signals->add_handler (TERM => $stop, name => 'ServerSet');
-    push @signal, Promised::Command::Signals->add_handler (KILL => $stop, name => 'ServerSet');
+    push @signal, Promised::Command::Signals->add_handler
+        (INT => $stop, name => 'ServerSet');
+    push @signal, Promised::Command::Signals->add_handler
+        (TERM => $stop, name => 'ServerSet');
+    push @signal, Promised::Command::Signals->add_handler
+        (KILL => $stop, name => 'ServerSet');
     
-    my $gen = $self->_generate_keys;
-
+    my $gen;
     my $error;
     my $waitings = {};
     my $some_failed = 0;
-    for my $name (keys %$handlers) {
+    $run_instance = sub {
+      my $i_name = shift;
+      my $h_name = $handlers->{$i_name}->handler_name;
       my $started = $gen->then (sub {
-        warn "$$: SS: |$name|: Start...\n" if $DEBUG;
-        $waitings->{$name} = 'starting';
-        $handlers->{$name}->onstatechange (sub { $waitings->{$name} = $_[1] });
+        warn "$$: SS: |$i_name|: Start ($try_counts->{$h_name})...\n" if $DEBUG;
+        $waitings->{$i_name} = 'starting';
+        $handlers->{$i_name}->onstatechange (sub { $waitings->{$i_name} = $_[1] });
         return promised_timeout {
-          return $handlers->{$name}->start (
+          return $handlers->{$i_name}->start (
             $self,
-            %{$servers->{$name}},
-            debug => $DEBUG_SERVERS->{$name} || $DEBUG_SERVERS->{all},
+            %{$servers->{$h_name}},
+            signal => $acs->{$i_name}->signal,
+            try_count => $try_counts->{$h_name},
+            debug => $DEBUG_SERVERS->{$h_name} || $DEBUG_SERVERS->{all},
           );
         } 60*5;
       })->then (sub {
         my ($data, $done) = @{$_[0]}; 
-        warn "$$: SS: |$name|: Started\n" if $DEBUG;
-        $data_send->{$name}->($data) if defined $data_send->{$name};
+        warn "$$: SS: |$i_name|: Started\n" if $DEBUG;
+        $data_send->{$h_name}->($data) if defined $data_send->{$h_name};
         push @done, Promise->resolve ($done)->then (sub {
-          warn "$$: SS: |$name|: Done\n" if $DEBUG;
+          warn "$$: SS: |$i_name|: Done\n" if $DEBUG;
         }, sub {
           my $e = shift;
-          warn "$$: SS: |$name|: Done with error: $e\n";
+          warn "$$: SS: |$i_name|: Done with error: $e\n";
         });
-        delete $waitings->{$name};
+        delete $waitings->{$i_name};
         if ($data->{failed}) {
           warn sprintf "========== Logs of |%s| ======\n%s\n====== /Logs of |%s| ======\n",
-              $name,
-              $handlers->{$name}->logs,
-              $name;
+              $i_name,
+              $handlers->{$i_name}->logs,
+              $i_name;
         }
 
-        my $hb_interval = $handlers->{$name}->heartbeat_interval;
+        my $hb_interval = $handlers->{$i_name}->heartbeat_interval;
         if ($hb_interval) {
-          $acs->{$name, 'heartbeat'} = AbortController->new;
-          push @done, promised_sleep ($hb_interval, signal => $acs->{$name, 'heartbeat'}->signal)->then (sub {
+          $acs->{$i_name, 'heartbeat'} = AbortController->new;
+          push @done, promised_sleep ($hb_interval, signal => $acs->{$i_name, 'heartbeat'}->signal)->then (sub {
             return promised_wait_until {
               return Promise->resolve->then (sub {
-                return $handlers->{$name}->heartbeat ($self, $data);
+                return $handlers->{$i_name}->heartbeat ($self, $data);
               })->then (sub {
                 return not 'done';
               }, sub {
                 my $error = shift;
-                warn "$$: SS: |$name|: Heartbear failed ($error)\n";
+                warn "$$: SS: |$i_name|: Heartbear failed ($error)\n";
                 $stop->(undef);
                 return undef;
               });
-            } interval => $hb_interval, signal => $acs->{$name, 'heartbeat'}->signal;
+            } interval => $hb_interval, signal => $acs->{$i_name, 'heartbeat'}->signal;
           })->catch (sub {
             my $e = shift;
             return if UNIVERSAL::isa ($e, 'Promise::AbortError');
@@ -407,23 +426,43 @@ sub run ($$$%) {
         
         return undef;
       })->catch (sub {
-        $error //= $_[0];
-        warn "$$: SS: |$name|: Failed to start ($error)\n" if $DEBUG;
-        delete $waitings->{$name};
+        my $e = $_[0];
+        warn "$$: SS: |$i_name|: Failed to start ($e)\n" if $DEBUG;
+        delete $waitings->{$i_name};
+        if (UNIVERSAL::isa ($_[0], 'ServerSet::RestartableError')) {
+          if ($try_counts->{$h_name} <= 1) {
+            $acs->{$i_name}->abort;
+            warn "$$: SS: |$h_name|: Retry...\n" if $DEBUG;
+            my $i_name = $create_instance->($h_name);
+            $run_instance->($i_name);
+            return;
+          } else {
+            $e = $e->unwrap;
+          }
+        }
+        $error //= $e;
         unless ($some_failed) {
           warn sprintf "========== Logs of |%s| ======\n%s\n====== /Logs of |%s| ======\n",
-              $name,
-              $handlers->{$name}->logs,
-              $name;
+              $i_name,
+              $handlers->{$i_name}->logs,
+              $i_name;
         }
         $some_failed = 1;
         $stop->(undef);
-        $data_send->{$name}->(Promise->reject ($_[0]))
-            if defined $data_send->{$name};
+        $data_send->{$h_name}->(Promise->reject ($e))
+            if defined $data_send->{$h_name};
       });
       push @started, $started;
       push @done, $started;
-    } # $name
+    }; # $run_instance
+
+    for my $h_name (keys %$servers) {
+      $create_instance->($h_name);
+    } # $servers
+    $gen = $self->_generate_keys ({});
+    for my $i_name (keys %$handlers) {
+      $run_instance->($i_name);
+    } # $h_name
 
     my $repeat = $DEBUG ? AE::timer 0, 10, sub {
       return unless keys %$waitings;
@@ -447,12 +486,14 @@ sub run ($$$%) {
         return {data => $data, done => Promise->all (\@done)->finally (sub {
           return $pid_file->remove_tree if defined $pid_file;
         })->finally (sub {
+          undef $run_instance;
           return $cleanup->();
         })};
       })->catch (sub {
         my $e = $_[0];
         return $pid_file->remove_tree->finally (sub { die $e })
             if defined $pid_file;
+        undef $run_instance;
         die $e;
       });
     })->catch (sub {
@@ -461,11 +502,24 @@ sub run ($$$%) {
       return Promise->all (\@done)->finally (sub {
         return $cleanup->();
       })->finally (sub {
+        undef $run_instance;
         die $e;
       });
     });
   });
 } # run
+
+package ServerSet::RestartableError;
+
+use overload '""' => 'stringify', fallback => 1;
+
+sub unwrap ($) {
+  return $_[0]->{message} || die;
+}
+
+sub stringify ($) {
+  return 'RestartableError: ' . $_[0]->{message};
+}
 
 1;
 

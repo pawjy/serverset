@@ -73,11 +73,64 @@ sub run ($$$;%) {
   });
 } # run
 
+sub run_dumped ($$$;%) {
+  my ($class, $sqls, $dsns, %args) = @_;
+  my @done;
+  my $db;
+  my $set_db = sub {
+    my $db_name = shift;
+    push @done, $db->disconnect if defined $db;
+    $db = Dongry::Database->new (
+      sources => {
+        master => {dsn => Dongry::Type->serialize ('text', $dsns->{$db_name} // die "Database |$db_name| has no dsn"),
+                   writable => 1, anyevent => 1},
+      },
+    );
+  }; # $set_db
+  $set_db->([keys %$dsns]->[0] // die "Empty |dsns|");
+  return Promise->resolve->then (sub {
+    $sqls =~ s/--.*$//gm;
+    $sqls =~ s/^;+//;
+    return promised_until {
+      my $sql = '';
+      if ($sqls =~ s{^((?:"(?:[^"\\]+|\\.)*"|'(?:[^'\\]|\\.)*'|[^"';])+)}{}s) {
+        $sql = $1;
+      } else {
+        return 'done';
+      }
+      $sqls =~ s{^;+}{};
+
+      $sql =~ s/^\s+//;
+      $sql =~ s/\s+$//;
+      return not 'done' if
+          $sql eq '' or
+          $sql =~ /^LOCK TABLES / or
+          $sql =~ /^UNLOCK TABLES/ or
+          $sql =~ m{^/\*![0-9]+\s*SET\s+};
+      
+      if ($sql =~ m{^\s*USE\s*`([^`]+)`\s*$}) {
+        my $name = $1;
+        $name =~ s/_local$//g;
+        $set_db->($name);
+        return not 'done';
+      }
+      
+      return $db->execute ($sql, undef, source_name => 'master')->then (sub {
+        return not 'done';
+      });
+    };
+  })->finally (sub {
+    push @done, $db->disconnect;
+  })->finally (sub {
+    return Promise->all (\@done);
+  });
+} # run
+
 1;
 
 =head1 LICENSE
 
-Copyright 2018 Wakaba <wakaba@suikawiki.org>.
+Copyright 2018-2022 Wakaba <wakaba@suikawiki.org>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

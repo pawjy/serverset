@@ -15,13 +15,13 @@ my $dockerhost = Web::Host->parse_string
     (Promised::Command::Docker->dockerhost_host_for_container);
 sub dockerhost () { $dockerhost }
 
-sub new_from_params ($$) {
-  my ($class, $params) = @_;
-  return bless {params => $params, container_names => {},
-                logs => ''}, $class;
+sub new_from_params ($$$) {
+  my ($class, $h_name, $params) = @_;
+  return bless {handler_name => $h_name, params => $params,
+                container_names => {}, logs => ''}, $class;
 } # new_from_params
 
-sub start ($$;%) {
+sub start ($$%) {
   my ($handler, $ss, %args) = @_;
   my $data = {};
 

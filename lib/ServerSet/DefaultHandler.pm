@@ -2,11 +2,14 @@ package ServerSet::DefaultHandler;
 use strict;
 use warnings;
 
-sub new_from_params ($$) {
-  my ($class, $params) = @_;
+sub new_from_params ($$$) {
+  my ($class, $h_name, $params) = @_;
   die "No |start|" unless defined $params->{start};
-  return bless {params => $params, logs => ''}, $class;
+  return bless {handler_name => $h_name, params => $params,
+                logs => ''}, $class;
 } # new_from_params
+
+sub handler_name ($) { $_[0]->{handler_name} }
 
 sub get_keys ($) {
   my $self = shift;
