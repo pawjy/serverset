@@ -104,7 +104,7 @@ my $Methods = {
       } timeout => 60*4, signal => $signal, name => 'minio config';
     })->then (sub {
         return $ss->wait_for_http
-            ($ss->actual_url ('storage'),
+            ($ss->actual_or_local_url ('storage'),
              signal => $signal, name => 'wait for storage');
     });
   }, # wait
@@ -114,7 +114,7 @@ my $Methods = {
     $bucket_domain =~ tr/A-Z_-/a-z/;
     my $public_prefixes = $args->{public_prefixes} || [];
     my $s3_url = Web::URL->parse_string
-        ("/$bucket_domain/", $ss->actual_url ('storage'));
+        ("/$bucket_domain/", $ss->actual_or_local_url ('storage'));
     my $client = Web::Transport::BasicClient->new_from_url ($s3_url);
     return $client->request (
       url => $s3_url, method => 'PUT',

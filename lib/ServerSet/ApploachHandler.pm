@@ -84,7 +84,7 @@ my $Methods = {
   }, # beforewait
   wait => sub {
     my ($handler, $ss, $args, $data, $signal) = @_;
-    return $ss->wait_for_http ($ss->actual_url ('apploach'),
+    return $ss->wait_for_http ($ss->actual_or_local_url ('apploach'),
         signal => $signal, name => 'wait for apploach');
   }, # wait
 }; # $Methods

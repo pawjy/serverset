@@ -93,7 +93,7 @@ my $Methods = {
   }, # beforewait
   wait => sub {
     my ($handler, $ss, $args, $data, $signal) = @_;
-    return $ss->wait_for_http ($ss->actual_url ('accounts'),
+    return $ss->wait_for_http ($ss->actual_or_local_url ('accounts'),
         signal => $signal, name => 'wait for accounts');
   }, # wait
 }; # $Methods

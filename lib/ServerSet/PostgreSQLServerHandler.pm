@@ -105,7 +105,7 @@ sub start ($$;%) {
   
   $params->{wait} = sub {
     my ($handler, $self, $args, $data, $signal) = @_;
-    my $dsn = $data->{actual_dsn}->{[keys %{$args->{databases}}]->[0] // 'test'};
+    my $dsn = $data->{$self->actual_or_local ('dsn')}->{[keys %{$args->{databases}}]->[0] // 'test'};
     return promised_wait_until {
       return $handler->check_running->then (sub {
         die "|postgresql| is not running" unless $_[0];

@@ -33,7 +33,7 @@ sub get_keys ($) {
 
 sub start ($$;%) {
   my $handler = shift;
-  my (undef, %s_args) = @_;
+  my ($ss, %s_args) = @_;
   my $params = $handler->{params};
 
   my $mysql_port = 3306;
@@ -135,7 +135,7 @@ sub start ($$;%) {
     my $client;
     return Promise->resolve->then (sub {
       require AnyEvent::MySQL::Client::ShowLog if $ENV{SQL_DEBUG};
-      my $dsn = $data->{actual_dsn_options}->{[keys %{$args->{databases}}]->[0] // 'test'};
+      my $dsn = $data->{$ss->actual_or_local ('dsn_options')}->{[keys %{$args->{databases}}]->[0] // 'test'};
       return promised_wait_until {
         return $handler->check_running->then (sub {
           die "|mysqld| is not running" unless $_[0];
@@ -191,23 +191,23 @@ sub start ($$;%) {
         my $file = Promised::File->new_from_path ($path);
         return $file->read_byte_string->then (sub {
           return ServerSet::Migration->run_dumped
-              ($_[0] => $data->{actual_dsn});
+              ($_[0] => $data->{$self->actual_or_local ('dsn')});
         }, sub { });
       }
     })->then (sub {
-          return promised_for {
-            my $name = shift;
-            my $path = $args->{databases}->{$name};
-            return Promised::File->new_from_path ($path)->read_byte_string->catch (sub {
-              my $e = $_[0];
-              die "Failed to open |$path|: $e";
-            })->then (sub {
-              return ServerSet::Migration->run ($_[0] => $data->{actual_dsn}->{$name}, dump => 1);
-            })->then (sub {
-              return $self->write_file ("mysqld-$name.sql" => $_[0]);
-            });
-          } [keys %{$args->{databases} or {}}];
+      return promised_for {
+        my $name = shift;
+        my $path = $args->{databases}->{$name};
+        return Promised::File->new_from_path ($path)->read_byte_string->catch (sub {
+          my $e = $_[0];
+          die "Failed to open |$path|: $e";
+        })->then (sub {
+          return ServerSet::Migration->run ($_[0] => $data->{$self->actual_or_local ('dsn')}->{$name}, dump => 1);
+        })->then (sub {
+          return $self->write_file ("mysqld-$name.sql" => $_[0]);
         });
+      } [keys %{$args->{databases} or {}}];
+    });
   }; # wait
 
   return $handler->SUPER::start (@_);
@@ -217,7 +217,7 @@ sub heartbeat_interval ($) { 600 }
 sub heartbeat ($$$) {
   my ($handler, $ss, $data) = @_;
 
-  my $dsn = $data->{actual_dsn_options}->{[keys %{$data->{actual_dsn_options}}]->[0]};
+  my $dsn = $data->{$ss->actual_or_local ('dsn_options')}->{[keys %{$data->{$ss->actual_or_local ('dsn_options')}}]->[0]};
   return unless defined $dsn;
   my $cmd = Promised::Command->new ([
     'mysqldump',

@@ -45,7 +45,7 @@ sub wait_for_http ($$%) {
       $client = Web::Transport::BasicClient->new_from_url ($url);
       return 0;
     });
-  } timeout => 60, interval => 0.3, signal => $args{signal}, name => $args{name};
+  } timeout => $args{timeout} || 60, interval => 0.3, signal => $args{signal}, name => $args{name};
 } # wait_for_http
 
 sub dsn ($$$) {
@@ -156,6 +156,15 @@ sub key ($$) {
   return $self->{keys}->{$name} // die "Key |$name| not defined";
 } # key
 
+sub actual_or_local ($$) {
+  my ($self, $key) = @_;
+  if ($self->{use_local}) {
+    return 'local_' . $key;
+  } else {
+    return 'actual_' . $key;
+  }
+} # actual_or_local
+
 sub set_hostport ($$$$) {
   my ($self, $name, $host, $port) = @_;
   die "Can't set |$name| hostport anymore"
@@ -204,6 +213,15 @@ sub local_url ($$) {
   $self->_register_server ($name);
   return $self->{servers}->{$name}->{local_url};
 } # local_url
+
+sub actual_or_local_url ($$) {
+  my ($self, $name) = @_;
+  if ($self->{use_local}) {
+    return $self->local_url ($name);
+  } else {
+    return $self->actual_url ($name);
+  }
+} # actual_or_pf_url
 
 sub actual_url ($$) {
   my ($self, $name) = @_;
@@ -292,7 +310,7 @@ sub run ($$$%) {
     ]);
     return $cmd->run->then (sub { return $cmd->wait });
   }; # $cleanup
-
+  
   return Promise->resolve->then (sub {
     return $prep_params->($self, \%args);
   })->then (sub {
@@ -374,6 +392,10 @@ sub run ($$$%) {
         warn "$$: SS: |$i_name|: Start ($try_counts->{$h_name})...\n" if $DEBUG;
         $waitings->{$i_name} = 'starting';
         $handlers->{$i_name}->onstatechange (sub { $waitings->{$i_name} = $_[1] });
+        return $handlers->{$i_name}->init ($self, sub {
+          warn "$$: SS: (init) $_[0]\n" if $DEBUG;
+        });
+      })->then (sub {
         return promised_timeout {
           return $handlers->{$i_name}->start (
             $self,

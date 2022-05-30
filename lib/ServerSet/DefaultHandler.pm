@@ -2,6 +2,10 @@ package ServerSet::DefaultHandler;
 use strict;
 use warnings;
 
+sub init ($$$) {
+  return undef;
+} # init
+
 sub new_from_params ($$$) {
   my ($class, $h_name, $params) = @_;
   die "No |start|" unless defined $params->{start};

@@ -7,6 +7,8 @@ use Promise;
 use Promised::Flow;
 use Promised::Command;
 use Promised::Command::Docker;
+use Web::Host;
+use Web::URL;
 
 use ServerSet::DefaultHandler;
 push our @ISA, qw(ServerSet::DefaultHandler);
@@ -14,6 +16,14 @@ push our @ISA, qw(ServerSet::DefaultHandler);
 my $dockerhost = Web::Host->parse_string
     (Promised::Command::Docker->dockerhost_host_for_container);
 sub dockerhost () { $dockerhost }
+
+sub init ($$$) {
+  my ($class, $ss, $logs) = @_;
+  return $ss->{_dh_check} ||= $class->check_container_reachability ($ss)->then (sub {
+    $ss->{use_local} = ! $_[0];
+    $logs->("actual_or_local: " . ($ss->{use_local} ? 'local' : 'actual'));
+  });
+} # init
 
 sub new_from_params ($$$) {
   my ($class, $h_name, $params) = @_;
@@ -234,5 +244,40 @@ sub cat_file ($$) {
     return $return;
   });
 } # cat_file
+
+sub check_container_reachability ($$) {
+  my ($class, $ss) = @_;
+
+  my $port = 18080;
+  
+  my $context_name = __PACKAGE__ . '--' . time;
+  my $container_name = $context_name . '--' . 'check_reachability';
+  $container_name =~ s/[^A-Za-z0-9_.-]/_/g;
+  
+  my $docker = Promised::Command::Docker->new (
+    image => 'quay.io/wakaba/docker-perl-app-base',
+    command => ['/app/perl', '-MAnyEvent::Socket', '-e', q{$cv=AE::cv;$s=tcp_server "0",shift,sub{($fh)=@_;print$fh"HTTP/1.0 200 OK\x0D\x0A\x0D\x0A";$cv->send};close $fh;$cv->recv}, $port],
+    docker_run_options => [
+      '--name' => $container_name,
+    ],
+  );
+  $docker->propagate_signal (1);
+  $docker->signal_before_destruction ('KILL');
+  return $docker->start->then (sub {
+    return $docker->get_container_ipaddr;
+  })->then (sub {
+    my $ipaddr = shift;
+    my $url = Web::URL->parse_string (qq<http://$ipaddr:$port>);
+    return $ss->wait_for_http
+        ($url, timeout => 10, name => 'container reachable');
+  })->then (sub {
+    return 1;
+  }, sub {
+    warn "check_container_reachability: |$_[0]|\n";
+    return 0;
+  })->finally (sub {
+    return $docker->stop;
+  });
+} # check_container_reachability
 
 1;
