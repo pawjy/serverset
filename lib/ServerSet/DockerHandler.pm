@@ -19,7 +19,7 @@ sub dockerhost () { $dockerhost }
 
 sub init ($$$) {
   my ($class, $ss, $logs) = @_;
-  return $ss->{_dh_check} ||= $class->check_container_reachability ($ss)->then (sub {
+  return $ss->{_dh_check} ||= $class->check_container_reachability ($ss, $logs)->then (sub {
     $ss->{use_local} = ! $_[0];
     $logs->("actual_or_local: " . ($ss->{use_local} ? 'local' : 'actual'));
   });
@@ -108,7 +108,7 @@ sub start ($$%) {
             (map { ('-v', $_) } @{$d->{volumes} or []}),
             (map { ('-p', $_) } @{$d->{ports} or []}),
             (map { ('--user', $_) } grep { defined $_ } ($d->{user})),
-            (map { ('-e', $_ . '=' . $d->{environment}->{$_}) } keys %{$d->{environment} or {}}),
+            (map { ('-e', $_ . '=' . $d->{environment}->{$_}) } grep { defined $d->{environment}->{$_} } keys %{$d->{environment} or {}}),
             ($d->{net_host} ? ('--net=host') : ()),
             '--restart' => {
               any => 'always',
@@ -245,8 +245,8 @@ sub cat_file ($$) {
   });
 } # cat_file
 
-sub check_container_reachability ($$) {
-  my ($class, $ss) = @_;
+sub check_container_reachability ($$$) {
+  my ($class, $ss, $logs) = @_;
 
   my $port = 18080;
   
@@ -273,7 +273,7 @@ sub check_container_reachability ($$) {
   })->then (sub {
     return 1;
   }, sub {
-    warn "check_container_reachability: |$_[0]|\n";
+    $logs->("check_container_reachability: |$_[0]|");
     return 0;
   })->finally (sub {
     return $docker->stop;

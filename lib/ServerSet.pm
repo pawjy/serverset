@@ -393,7 +393,7 @@ sub run ($$$%) {
         $waitings->{$i_name} = 'starting';
         $handlers->{$i_name}->onstatechange (sub { $waitings->{$i_name} = $_[1] });
         return $handlers->{$i_name}->init ($self, sub {
-          warn "$$: SS: (init) $_[0]\n" if $DEBUG;
+          warn "$$: SS: init: $_[0]\n";
         });
       })->then (sub {
         return promised_timeout {
