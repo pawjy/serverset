@@ -155,9 +155,13 @@ sub start ($$;%) {
               # 2022-05-16  2:07:20 0 [ERROR] InnoDB: Cannot open datafile './ibdata1'
               # 2022-05-16  2:29:08 0 [ERROR] InnoDB: Unable to lock ./ibdata1 error: 11
               # [ERROR] mysqld: Can't lock aria control file '/var/lib/mysql/aria_log_control' for exclusive use, error: 11. Will retry for 30 seconds
+              #
+              # [ERROR] InnoDB: Missing FILE_CHECKPOINT at 42245 between the checkpoint 42245 and the end 45765.
+              # [ERROR] InnoDB: Plugin initialization aborted with error Generic error
               if ($log =~ m{\[ERROR\] InnoDB: Cannot open datafile './ibdata1'} or
                   $log =~ m{\[ERROR\] InnoDB: Unable to lock ./ibdata1 error: 11} or
-                  $log =~ m{\[ERROR\] mysqld: Can't lock aria control file '/var/lib/mysql/aria_log_control' for exclusive use, error: 11. Will retry for 30 seconds}) {
+                  $log =~ m{\[ERROR\] mysqld: Can't lock aria control file '/var/lib/mysql/aria_log_control' for exclusive use, error: 11. Will retry for 30 seconds} or
+                  $log =~ m{\[ERROR\] InnoDB: Missing FILE_CHECKPOINT at }) {
                 die bless {message => "MySQL database is broken"},
                     'ServerSet::RestartableError';
               }
