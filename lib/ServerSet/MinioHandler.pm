@@ -31,7 +31,7 @@ my $Methods = {
     ])->then (sub {
       my $net_host = $args->{docker_net_host};
       return {
-        image => 'minio/minio',
+        image => 'quay.io/wakaba/minio',
         volumes => [
           $self->path ('minio_config')->absolute . ':/config',
           $self->path ('minio_data')->absolute . ':/data',
