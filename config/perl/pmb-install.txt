@@ -3,9 +3,8 @@ AnyEvent::FileLock~0.06
 AnyEvent::Fork~1.32
 AnyEvent::HTTP~2.25
 AnyEvent::HTTPD~0.93
-AnyEvent::Socket
 Canary::Stability~2013
-Carp::Heavy~1.50
+Carp~1.50
 Cwd~3.75
 Data::Dumper~2.183
 Digest::SHA~6.02
@@ -13,6 +12,7 @@ Encode~3.17
 Exporter::Lite~0.09
 File::Path~2.18
 File::Temp~0.2311
+Filter::Util::Call~1.60
 IO::FDPass~1.3
 MIME::Base64~3.16
 Math::BigInt~1.999835
