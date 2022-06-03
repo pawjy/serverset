@@ -68,45 +68,12 @@ my $Methods = {
   }, # beforewait
   wait => sub {
     my ($handler, $ss, $args, $data, $signal) = @_;
-    return Promise->resolve->then (sub {
-      my $config1_path = $ss->path ('minio_config')->child ('config.json');
-      my $config2_path = $ss->path ('minio_data')->child ('.minio.sys/config/config.json');
-      my $f1 = Promised::File->new_from_path ($config1_path);
-      my $f2 = Promised::File->new_from_path ($config2_path);
-      return promised_wait_until {
-        return $handler->check_running->then (sub {
-          die "|storage| is not running" unless $_[0];
-          return Promise->all ([$f1->is_file, $f2->is_file]);
-        })->then (sub {
-          if ($_[0]->[1] or $_[0]->[2]) {
-            return (($_[0]->[1] ? $f2 : $f1)->read_byte_string);
-          } else {
-            return $handler->cat_file ('/data/.minio.sys/config/config.json')->then (sub {
-              my $results = $_[0];
-              return $results->{0} // 'null';
-            });
-          }
-        })->then (sub {
-          my $config = json_bytes2perl $_[0];
-          if (defined $config->{region}->{_}) {
-            $data->{aws4}->[0] = [grep { $_->{key} eq 'access_key' } @{$config->{credentials}->{_}}]->[0]->{value};
-            $data->{aws4}->[1] = [grep { $_->{key} eq 'secret_key' } @{$config->{credentials}->{_}}]->[0]->{value};
-            $data->{aws4}->[2] = [grep { $_->{key} eq 'name' } @{$config->{region}->{_}}]->[0]->{value};
-          } else { # old
-            $data->{aws4}->[0] = $config->{credential}->{accessKey};
-            $data->{aws4}->[1] = $config->{credential}->{secretKey};
-            $data->{aws4}->[2] = $config->{region};
-          }
-          return defined $data->{aws4}->[0] &&
-                 defined $data->{aws4}->[1] &&
-                 defined $data->{aws4}->[2];
-        })->catch (sub { return 0 });
-      } timeout => 60*4, signal => $signal, name => 'minio config';
-    })->then (sub {
-        return $ss->wait_for_http
-            ($ss->actual_or_local_url ('storage'),
-             signal => $signal, name => 'wait for storage');
-    });
+    $data->{aws4}->[0] = 'minioadmin';
+    $data->{aws4}->[1] = 'minioadmin';
+    $data->{aws4}->[2] = '';
+    return $ss->wait_for_http
+        ($ss->actual_or_local_url ('storage'),
+         signal => $signal, name => 'wait for storage');
   }, # wait
   init => sub {
     my ($handler, $ss, $args, $data, $signal) = @_;
