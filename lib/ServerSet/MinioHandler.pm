@@ -16,7 +16,7 @@ sub get_keys ($) {
   my $self = shift;
   return {
     %{$self->SUPER::get_keys},
-    storage_bucket => 'key',
+    storage_bucket => 'domainlabel',
   };
 } # get_keys
 
@@ -82,8 +82,8 @@ my $Methods = {
   init => sub {
     my ($handler, $ss, $args, $data, $signal) = @_;
     my $bucket_domain = $ss->key ('storage_bucket');
-    $bucket_domain =~ tr/A-Z_-/a-z/;
     my $public_prefixes = $args->{public_prefixes} || [];
+    my $writable_prefixes = $args->{writable_prefixes} || [];
     my $s3_url = Web::URL->parse_string
         ("/$bucket_domain/", $ss->actual_or_local_url ('storage'));
     my $client = Web::Transport::BasicClient->new_from_url ($s3_url);
@@ -94,15 +94,26 @@ my $Methods = {
       die $_[0] unless $_[0]->status == 200 || $_[0]->status == 409; # 409 if exists
       my $body = perl2json_bytes {
         "Version" => "2012-10-17",
-        "Statement" => [map {
-          {
-            "Action" => ["s3:GetObject"],
-            "Effect" => "Allow",
-            "Principal" => {"AWS" => ["*"]},
-            "Resource" => ["arn:aws:s3:::$bucket_domain$_/*"],
-            "Sid" => "",
-          }
-        } @$public_prefixes],
+        "Statement" => [
+          (map {
+            {
+              "Action" => ["s3:GetObject"],
+              "Effect" => "Allow",
+              "Principal" => {"AWS" => ["*"]},
+              "Resource" => ["arn:aws:s3:::$bucket_domain$_/*"],
+              "Sid" => "",
+            }
+          } @$public_prefixes),
+          (map {
+            {
+              "Action" => ["s3:PutObject"],
+              "Effect" => "Allow",
+              "Principal" => {"AWS" => ["*"]},
+              "Resource" => ["arn:aws:s3:::$bucket_domain$_/*"],
+              "Sid" => "",
+            }
+          } @$writable_prefixes),
+        ],
       };
       return $client->request (
         url => Web::URL->parse_string ('./?policy', $s3_url),

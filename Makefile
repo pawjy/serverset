@@ -39,10 +39,13 @@ pmbp-install: pmbp-upgrade
 PROVE = ./prove
 
 test: test-deps test-main
+test-minio: test-deps test-main-minio
 
 test-deps: deps
 
 test-main:
-#	$(PROVE) t/*.t
+	$(PROVE) t/*.t
+test-main-minio:
+	$(PROVE) t/minio*.t
 
 ## License: Public Domain.
