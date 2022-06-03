@@ -62,6 +62,10 @@ my $Methods = {
     my ($handler, $ss, $args, $data, $signal, $docker) = @_;
 
     return $docker->get_container_ipaddr->then (sub {
+      unless (defined $_[0]) {
+        warn "SS: docker container IP address is not available";
+        return;
+      }
       my $url = Web::URL->parse_string ('http://' . $_[0] . ':' . $data->{_storage_port}) // die "Bad docker container IP address |$_[0]|";
       $ss->set_actual_url ('storage', $url);
     });
