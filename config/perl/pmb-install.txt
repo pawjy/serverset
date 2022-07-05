@@ -27,5 +27,5 @@ Term::ANSIColor~5.01
 Test::Builder~1.302190
 Time::HiRes~1.9764
 Time::Local~1.30
-URI~5.10
+URI~5.11
 common::sense~3.75
