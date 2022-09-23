@@ -4,7 +4,7 @@ AnyEvent::Fork~1.32
 AnyEvent::HTTP~2.25
 AnyEvent::HTTPD~0.93
 Canary::Stability~2013
-Carp~1.50
+Carp::Heavy~1.50
 Cwd~3.75
 Data::Dumper~2.183
 Digest::SHA~6.03
@@ -24,7 +24,7 @@ Proc::FastSpawn~1.2
 Scalar::Util~1.63
 Socket~2.036
 Term::ANSIColor~5.01
-Test::More~1.302191
+Test::Builder~1.302191
 Time::HiRes~1.9764
 Time::Local~1.30
 URI~5.12
