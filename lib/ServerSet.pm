@@ -242,6 +242,9 @@ sub set_actual_url ($$$;%) {
     $self->{servers}->{$name}->{local_url} = $url;
   }
   $self->{proxy_map}->{"$name.server.test"} = $url;
+  if ($args{subdomains}) {
+    $self->{proxy_wildcard_map}->{"$name.server.test"} = $url;
+  }
   if ($name eq 'proxy') {
     $self->{servers}->{$name}->{actual_envs} = {
       http_proxy => $url->get_origin->to_ascii,
@@ -270,9 +273,12 @@ sub set_actual_envs ($$$) {
   $dest->{$_} = $envs->{$_} for keys %$envs;
 } # set_actual_envs
 
-sub set_proxy_alias ($$$) {
-  my ($self, $new_name, $old_name) = @_;
+sub set_proxy_alias ($$$;%) {
+  my ($self, $new_name, $old_name, %args) = @_;
   $self->{proxy_aliases}->{$new_name} = $old_name;
+  if ($args{subdomains}) {
+    $self->{proxy_wildcard_aliases}->{$new_name} = $old_name;
+  }
 } # set_proxy_alias
 
 sub run ($$$%) {
@@ -292,7 +298,9 @@ sub run ($$$%) {
 
   my $self = bless {
     proxy_map => {},
+    proxy_wildcard_map => {},
     proxy_aliases => {},
+    proxy_wildcard_aliases => {},
     data_root_path => $args{data_root_path},
     keys => {},
     key_defs => {},
