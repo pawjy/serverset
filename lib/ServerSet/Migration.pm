@@ -47,7 +47,7 @@ sub run ($$$;%) {
               sql => $sql,
               sql_sha => sha1_hex ($sql),
               timestamp => time,
-            }], source_name => 'master');
+            }], source_name => 'master', duplicate => 'replace');
           })->then (sub {
             return $tr->commit;
             ## Note that `create` statements are not rollbacked by failure.
