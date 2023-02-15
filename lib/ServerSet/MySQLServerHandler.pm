@@ -158,10 +158,12 @@ sub start ($$;%) {
               #
               # [ERROR] InnoDB: Missing FILE_CHECKPOINT at 42245 between the checkpoint 42245 and the end 45765.
               # [ERROR] InnoDB: Plugin initialization aborted with error Generic error
+              # [ERROR] mariadbd: Got error 'Could not get an exclusive lock; file is probably in use by another process' when trying to use aria control file '/var/lib/mysql/aria_log_control'
               if ($log =~ m{\[ERROR\] InnoDB: Cannot open datafile './ibdata1'} or
                   $log =~ m{\[ERROR\] InnoDB: Unable to lock ./ibdata1 error: 11} or
                   $log =~ m{\[ERROR\] mysqld: Can't lock aria control file '/var/lib/mysql/aria_log_control' for exclusive use, error: 11. Will retry for 30 seconds} or
-                  $log =~ m{\[ERROR\] InnoDB: Missing FILE_CHECKPOINT at }) {
+                  $log =~ m{\[ERROR\] InnoDB: Missing FILE_CHECKPOINT at } or
+                  $log =~ m{\[ERROR\] mariadbd: Got error 'Could not get an exclusive lock; file is probably in use by another process'}) {
                 die bless {message => "MySQL database is broken"},
                     'ServerSet::RestartableError';
               }
