@@ -200,8 +200,8 @@ sub start ($$;%) {
           serial_number => int rand 10000000,
           subject => {CN => $host->to_ascii},
           san_hosts => [$host,
-                        @{$prepared->{client_san_hosts}},
-                        map { $_->host } @{$prepared->{client_urls}}],
+                        @{$prepared->{client_san_hosts} or []},
+                        map { $_->host } @{$prepared->{client_urls} or []}],
           ee => 1,
         )->then (sub {
           my $cert = $_[0];

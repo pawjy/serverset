@@ -18,6 +18,7 @@ sub start ($$;%) {
   my ($handler, $ss, %args) = @_;
   my $browser = $args{browser_type} // 'chrome';
   my $wd = Promised::Docker::WebDriver->$browser;
+  $wd->start_timeout ($args{start_timeout}) if $args{start_timeout};
   return $wd->start->then (sub {
     die $args{signal}->manakai_error if $args{signal}->aborted;
     $args{signal}->manakai_onabort (sub {
