@@ -393,7 +393,8 @@ sub run ($$$%) {
         (TERM => $stop, name => 'ServerSet');
     push @signal, Promised::Command::Signals->add_handler
         (KILL => $stop, name => 'ServerSet');
-    
+
+    warn "\026\033c$$: SS: Server...\n";
     my $gen;
     my $error;
     my $waitings = {};
