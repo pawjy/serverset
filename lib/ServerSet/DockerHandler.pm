@@ -245,8 +245,13 @@ sub cat_file ($$) {
   });
 } # cat_file
 
+## For tests
+our $ContainerNotReachable;
+
 sub check_container_reachability ($$$) {
   my ($class, $ss, $logs) = @_;
+
+  return Promise->resolve (0) if $ContainerNotReachable;
 
   my $port = 18080;
   

@@ -7,6 +7,7 @@ use Data::Dumper;
 $Data::Dumper::Sortkeys = 1;
 use AnyEvent;
 use AbortController;
+use Carp;
 use Promise;
 use Promised::Flow;
 use Promised::File;
@@ -231,7 +232,7 @@ sub actual_or_local_url ($$) {
 sub actual_url ($$) {
   my ($self, $name) = @_;
   $self->_register_server ($name);
-  return $self->{servers}->{$name}->{actual_url} // die "No actual URL for |$name| registered";
+  return $self->{servers}->{$name}->{actual_url} // die "No actual URL for |$name| registered", Carp::longmess;
 } # actual_url
 
 sub set_actual_url ($$$;%) {
