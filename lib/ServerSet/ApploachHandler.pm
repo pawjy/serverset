@@ -66,9 +66,9 @@ my $Methods = {
             PORT => $apploach_port,
             APP_CONFIG => '/config.json',
 
-            SQL_DEBUG => $args->{debug} || 0,
-            WEBUA_DEBUG => $args->{debug} || 0,
-            WEBSERVER_DEBUG => $args->{debug} || 0,
+            SQL_DEBUG => $args->{sql_debug} || 0,
+            WEBUA_DEBUG => $args->{webua_debug} || 0,
+            WEBSERVER_DEBUG => $args->{webserver_debug} || 0,
           },
         };
       });
