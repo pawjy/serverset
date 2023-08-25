@@ -58,6 +58,9 @@ my $Methods = {
           servers_json_file => 'servers.json',
           dsns => {account => $data->{actual_dsn}},
           alt_dsns => {master => {account => $data->{actual_dsn}}},
+
+          lk_public_key => [119,46,118,168,99,153,238,227,200,54,254,78,206,94,192,213,80,220,198,93,12,238,170,228,53,220,8,17,221,82,49,18],
+          lk_private_key => [193,97,195,30,94,110,25,57,12,166,25,36,252,150,252,11,249,128,199,16,74,69,217,51,18,85,201,226,222,138,216,144],
         }),
       ])->then (sub {
         my $net_host = $args->{docker_net_host};
