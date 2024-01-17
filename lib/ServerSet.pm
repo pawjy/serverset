@@ -516,6 +516,7 @@ sub run ($$$%) {
       warn "$$: SS: Servers are ready\n" if $DEBUG;
 
       my $pid_file = $args{write_ss_env} ? Promised::File->new_from_path ($self->artifacts_path ('ss.pid')) : undef;
+      $data->{ss_env_path} = $self->artifacts_path ('ss.env') if $args{write_ss_env};
       return Promise->all ([
         ($args{write_ss_env} ? Promised::File->new_from_path ($self->artifacts_path ('ss.env'))->write_byte_string (Dumper $data) : undef),
         (defined $pid_file ? $pid_file->write_byte_string ($$) : undef),
