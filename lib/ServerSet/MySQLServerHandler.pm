@@ -8,17 +8,21 @@ use Promised::File;
 use Promised::Command;
 use ArrayBuffer;
 use DataView;
-use Dongry::SQL qw(quote);
 use AnyEvent::MySQL::Client;
 use Web::Encoding;
 use Web::Host;
 
-use ServerSet::Migration;
 use ServerSet::DockerHandler;
 push our @ISA, qw(ServerSet::DockerHandler);
 
 #my $MySQLImage = 'mysql/mysql-server';
 my $MySQLImage = 'mariadb';
+
+sub quote ($) {
+  my $s = $_[0];
+  $s =~ s/`/``/g;
+  return q<`> . $s . q<`>;
+} # quote
 
 sub get_keys ($) {
   my $self = shift;
@@ -39,6 +43,7 @@ sub start ($$;%) {
   my $mysql_port = 3306;
   $params->{prepare} = sub {
     my ($handler, $self, $args, $data) = @_;
+
     my $my_cnf = join "\n", '[mysqld]',
         'user=mysql',
         'default_authentication_plugin=mysql_native_password', # XXX
@@ -49,18 +54,22 @@ sub start ($$;%) {
         'max_connections=1000',
         #'sql_mode=', # old default
         #'sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES', # 5.6 default
+        'socket=/sock/mysqld.sock',
+        (map { $_ . '=' . $args->{mycnf}->{$_} } grep { defined $args->{mycnf}->{$_} } keys %{$args->{mycnf} or {}}),
+        '',
     ;
-
+    
     my @dsn = (
       user => $self->key ('mysqld_user'),
       password => $self->key ('mysqld_password'),
       host => $self->local_url ('mysqld')->host,
       port => $self->local_url ('mysqld')->port,
+      mysql_socket => $self->path ('sock/mysqld.sock'),
     );
-        my @dbname = keys %{$args->{databases}};
-        @dbname = ('test') unless @dbname;
-        $data->{_dbname_suffix} = $args->{database_name_suffix} // '';
-        for my $dbname (@dbname) {
+    my @dbname = keys %{$args->{databases}};
+    @dbname = ('test') unless @dbname;
+    $data->{_dbname_suffix} = $args->{database_name_suffix} // '';
+    for my $dbname (@dbname) {
           $data->{local_dsn_options}->{$dbname} = {
             @dsn,
             dbname => $dbname . $data->{_dbname_suffix},
@@ -93,7 +102,10 @@ sub start ($$;%) {
         image => $MySQLImage,
         volumes => [
           $self->path ('my.cnf')->absolute . ':/etc/my.cnf',
+          $self->path ('my.cnf')->absolute . ':/etc/mysql/my.cnf',
           $data_path->absolute . ':/var/lib/mysql',
+          $self->path ('sock')->absolute . ':/sock',
+          (defined $s_args{volume_path} ? $s_args{volume_path} . ':' . $s_args{volume_path} : ()),
         ],
         net_host => $net_host,
         ports => ($net_host ? undef : [
@@ -173,27 +185,31 @@ sub start ($$;%) {
         });
       } timeout => 60*4, signal => $signal;
     })->then (sub {
-          return $client->query (
-            encode_web_utf8 sprintf q{create user '%s'@'%s' identified by '%s'},
-                $self->key ('mysqld_user'), '%',
-                $self->key ('mysqld_password'),
-          );
-        })->then (sub {
-          return promised_for {
-            my $name = encode_web_utf8 (shift . $data->{_dbname_suffix});
-            return $client->query ('create database if not exists ' . quote $name)->then (sub {
-              return $client->query (
-                encode_web_utf8 sprintf q{grant all on %s.* to '%s'@'%s'},
-                    quote $name,
-                    $self->key ('mysqld_user'), '%',
-              );
-            });
-          } [keys %{$args->{databases} or {}}];
-        })->finally (sub {
-          return $client->disconnect if defined $client;
+      return $client->query (
+        encode_web_utf8 sprintf q{create user '%s'@'%s' identified by '%s'},
+            $self->key ('mysqld_user'), '%',
+            $self->key ('mysqld_password'),
+      );
     })->then (sub {
+      return promised_for {
+        my $name = encode_web_utf8 (shift . $data->{_dbname_suffix});
+        return $client->query ('create database if not exists ' . quote $name)->then (sub {
+          return $client->query (
+            encode_web_utf8 sprintf q{grant all on %s.* to '%s'@'%s'},
+                quote $name,
+                $self->key ('mysqld_user'), '%',
+          );
+        });
+      } [keys %{$args->{databases} or {}}];
+    })->finally (sub {
+      return $client->disconnect if defined $client;
+    })->then (sub {
+      return if $args->{no_dump};
       if ($s_args{try_count} > 1) {
         my $path = $self->path ('mysql-dump.sql');
+        return unless $path->is_file;
+
+        require ServerSet::Migration;
         my $file = Promised::File->new_from_path ($path);
         return $file->read_byte_string->then (sub {
           return ServerSet::Migration->run_dumped
@@ -201,13 +217,19 @@ sub start ($$;%) {
         }, sub { });
       }
     })->then (sub {
+      return if $args->{no_dump};
       return promised_for {
         my $name = shift;
         my $path = $args->{databases}->{$name};
-        return Promised::File->new_from_path ($path)->read_byte_string->catch (sub {
-          my $e = $_[0];
-          die "Failed to open |$path|: $e";
+        return Promise->resolve->then (sub {
+          return '' if ref $path;
+          return Promised::File->new_from_path ($path)->read_byte_string->catch (sub {
+            my $e = $_[0];
+            die "Failed to open |$path|: $e";
+            return $e;
+          });
         })->then (sub {
+          require ServerSet::Migration;
           return ServerSet::Migration->run ($_[0] => $data->{$self->actual_or_local ('dsn')}->{$name}, dump => 1);
         })->then (sub {
           return $self->write_file ("mysqld-$name.sql" => $_[0]);
@@ -271,7 +293,7 @@ sub heartbeat ($$$) {
 
 =head1 LICENSE
 
-Copyright 2018-2022 Wakaba <wakaba@suikawiki.org>.
+Copyright 2018-2024 Wakaba <wakaba@suikawiki.org>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
