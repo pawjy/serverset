@@ -15,9 +15,6 @@ use Web::Host;
 use ServerSet::DockerHandler;
 push our @ISA, qw(ServerSet::DockerHandler);
 
-#my $MySQLImage = 'mysql/mysql-server';
-my $MySQLImage = 'mariadb';
-
 sub quote ($) {
   my $s = $_[0];
   $s =~ s/`/``/g;
@@ -86,6 +83,7 @@ sub start ($$;%) {
         } # $dbname
 
     my $data_path;
+    my $temp_path = $self->path ('logs');
     return Promise->resolve->then (sub {
       return $self->regenerate_keys (['mysqld_dir_name_id'])
           if $s_args{try_count} > 1;
@@ -94,16 +92,36 @@ sub start ($$;%) {
       
       return Promise->all ([
         Promised::File->new_from_path ($data_path)->mkpath,
+        Promised::File->new_from_path ($temp_path->child ('log.txt'))->write_byte_string ("")->then (sub {
+          chmod 0777, $temp_path->child ('log.txt');
+        }),
+        Promised::File->new_from_path ($self->path ('sock'))->mkpath->then (sub {
+          chmod 0777, $self->path ('sock');
+        }),
         $self->write_file ('my.cnf', $my_cnf),
       ]);
     })->then (sub {
       my $net_host = $args->{docker_net_host};
+
+      my $ver = $args->{mysql_version} // '';
+      my $MySQLImage = 'mariadb';
+      if ($ver eq 'mysql') {
+        $MySQLImage = 'mysql/mysql-server';
+      } elsif ($ver eq 'mysql8') {
+        $MySQLImage = 'mysql/mysql-server:8.0';
+      } elsif ($ver eq 'mysql5.6') {
+        $MySQLImage = 'mysql/mysql-server:5.6';
+      } elsif (length $ver) {
+        die "Unknown |mysql_version|: |$ver|";
+      }
+      
       return {
         image => $MySQLImage,
         volumes => [
           $self->path ('my.cnf')->absolute . ':/etc/my.cnf',
           $self->path ('my.cnf')->absolute . ':/etc/mysql/my.cnf',
           $data_path->absolute . ':/var/lib/mysql',
+          $temp_path->absolute . ':/logs',
           $self->path ('sock')->absolute . ':/sock',
           (defined $s_args{volume_path} ? $s_args{volume_path} . ':' . $s_args{volume_path} : ()),
         ],
@@ -120,7 +138,11 @@ sub start ($$;%) {
               MYSQL_DATABASE => $dbname[0] . $data->{_dbname_suffix},
               MYSQL_LOG_CONSOLE => 1,
             },
-          };
+        command => [
+          '--log-error=/logs/log.txt',
+          #'--console',
+        ],
+      };
     });
   }; # prepare
 
@@ -150,7 +172,19 @@ sub start ($$;%) {
       my $dsn = $data->{$ss->actual_or_local ('dsn_options')}->{[keys %{$args->{databases}}]->[0] // 'test'};
       return promised_wait_until {
         return $handler->check_running->then (sub {
-          die "|mysqld| is not running" unless $_[0];
+          unless ($_[0]) {
+            my $path = $self->path ('logs')->child ('log.txt');
+            my $file = Promised::File->new_from_path ($path);
+            return $file->is_file->then (sub {
+              return unless $_[0];
+              return $file->read_byte_string->then (sub {
+                my $bytes = $_[0];
+                warn "\n====== mysqld log ======\n$bytes\n====== / mysqld log ======\n";
+              });
+            })->then (sub {
+              die "|mysqld| is not running";
+            });
+          }
         })->then (sub {
           $client = AnyEvent::MySQL::Client->new;
           return $client->connect (
