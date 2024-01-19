@@ -25,7 +25,7 @@ sub get_keys ($) {
   my $self = shift;
   return {
     %{$self->SUPER::get_keys},
-    mysqld_user => 'key',
+    mysqld_user => 'key:,16', # max=16 in MySQL 5.6
     mysqld_password => 'key',
     mysqld_root_password => 'key',
     mysqld_dir_name_id => 'id',
@@ -219,20 +219,24 @@ sub start ($$;%) {
         });
       } timeout => 60*4, signal => $signal;
     })->then (sub {
-      return $client->query (
-        encode_web_utf8 sprintf q{create user '%s'@'%s' identified by '%s'},
-            $self->key ('mysqld_user'), '%',
-            $self->key ('mysqld_password'),
-      );
+      #return $client->query (
+      #  encode_web_utf8 sprintf q{create user '%s'@'%s' identified by '%s'},
+      #      $self->key ('mysqld_user'), '%',
+      #      $self->key ('mysqld_password'),
+      #);
     })->then (sub {
+      #die $_[0] unless $_[0]->is_success;
       return promised_for {
         my $name = encode_web_utf8 (shift . $data->{_dbname_suffix});
         return $client->query ('create database if not exists ' . quote $name)->then (sub {
+          die $_[0] unless $_[0]->is_success;
           return $client->query (
             encode_web_utf8 sprintf q{grant all on %s.* to '%s'@'%s'},
                 quote $name,
                 $self->key ('mysqld_user'), '%',
-          );
+          )->then (sub {
+            die $_[0] unless $_[0]->is_success;
+          });
         });
       } [keys %{$args->{databases} or {}}];
     })->finally (sub {
