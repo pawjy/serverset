@@ -49,7 +49,7 @@ sub start ($$;%) {
         'port=' . $mysql_port,
         'innodb_lock_wait_timeout=2',
         'max_connections=1000',
-        #'sql_mode=', # old default
+        ($args->{old_sql_mode} ? 'sql_mode=' : ()), # old default
         #'sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES', # 5.6 default
         'socket=/sock/mysqld.sock',
         (map { $_ . '=' . $args->{mycnf}->{$_} } grep { defined $args->{mycnf}->{$_} } keys %{$args->{mycnf} or {}}),
@@ -107,13 +107,19 @@ sub start ($$;%) {
       my $MySQLImage = 'mariadb';
       if ($ver eq 'mysql') {
         $MySQLImage = 'mysql/mysql-server';
+        $ver = 'mysql8';
       } elsif ($ver eq 'mysql8') {
         $MySQLImage = 'mysql/mysql-server:8.0';
       } elsif ($ver eq 'mysql5.6') {
         $MySQLImage = 'mysql/mysql-server:5.6';
+      } elsif ($ver eq 'mariadb') {
+        #
       } elsif (length $ver) {
         die "Unknown |mysql_version|: |$ver|";
+      } else {
+        $ver = 'mariadb';
       }
+      $data->{mysql_version} = $ver;
       
       return {
         image => $MySQLImage,
