@@ -43,7 +43,7 @@ sub start ($$;%) {
 
     my $my_cnf = join "\n", '[mysqld]',
         'user=mysql',
-        'default_authentication_plugin=mysql_native_password', # XXX
+        #'default_authentication_plugin=mysql_native_password',
         #'skip-networking',
         'bind-address=0.0.0.0',
         'port=' . $mysql_port,
