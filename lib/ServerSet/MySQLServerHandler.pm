@@ -266,7 +266,7 @@ sub start ($$;%) {
         my $name = shift;
         my $path = $args->{databases}->{$name};
         return Promise->resolve->then (sub {
-          return '' if ref $path;
+          return '' if ref $path eq 'HASH';
           return Promised::File->new_from_path ($path)->read_byte_string->catch (sub {
             my $e = $_[0];
             die "Failed to open |$path|: $e";
