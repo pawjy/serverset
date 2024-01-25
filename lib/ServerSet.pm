@@ -51,6 +51,12 @@ sub wait_for_http ($$%) {
 
 sub dsn ($$$) {
   my (undef, $type, $v) = @_;
+  $v = {%$v};
+  if (defined $v->{mysql_socket} and
+      defined $v->{host} and
+      defined $v->{port}) {
+    delete $v->{mysql_socket};
+  }
   return 'dbi:'.$type.':' . join ';', map {
     if (UNIVERSAL::isa ($v->{$_}, 'Web::Host')) {
       $_ . '=' . $v->{$_}->to_ascii;
