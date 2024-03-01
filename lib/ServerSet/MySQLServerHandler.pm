@@ -51,7 +51,7 @@ sub start ($$;%) {
         'max_connections=1000',
         ($args->{old_sql_mode} ? 'sql_mode=' : ()), # old default
         #'sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES', # 5.6 default
-        'socket=/sock/mysqld.sock',
+        ($args->{socket} ? 'socket=/sock/mysqld.sock' : ()),
         (map { $_ . '=' . $args->{mycnf}->{$_} } grep { defined $args->{mycnf}->{$_} } keys %{$args->{mycnf} or {}}),
         '',
     ;
@@ -61,8 +61,9 @@ sub start ($$;%) {
       password => $self->key ('mysqld_password'),
       host => $self->local_url ('mysqld')->host,
       port => $self->local_url ('mysqld')->port,
-      mysql_socket => $self->path ('sock/mysqld.sock'),
     );
+    push @dsn, (mysql_socket => $self->path ('sock/mysqld.sock'))
+        if $args->{socket};
     my @dbname = keys %{$args->{databases}};
     @dbname = ('test') unless @dbname;
     $data->{_dbname_suffix} = $args->{database_name_suffix} // '';
