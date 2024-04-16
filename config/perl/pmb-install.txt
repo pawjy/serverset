@@ -3,8 +3,9 @@ AnyEvent::FileLock~0.06
 AnyEvent::Fork~1.32
 AnyEvent::HTTP~2.25
 AnyEvent::HTTPD~0.93
+AnyEvent::Handle
 Canary::Stability~2013
-Carp~1.50
+Carp::Heavy~1.50
 Crypt::OpenSSL::RSA~0.33
 Crypt::OpenSSL::Random~0.16
 Cwd~3.75
@@ -24,9 +25,9 @@ Object::Event~1.23
 Path::Tiny~0.144
 Proc::FastSpawn~1.2
 Scalar::Util~1.63
-Socket~2.037
+Socket~2.038
 Term::ANSIColor~5.01
-Test::More~1.302198
+Test::Builder~1.302198
 Time::HiRes~1.9764
 Time::Local~1.35
 URI~5.28
