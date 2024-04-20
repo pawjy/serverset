@@ -314,7 +314,7 @@ sub run ($$$%) {
   }, $class;
   my $need_cleanup = 0;
   unless (defined $args{data_root_path}) {
-    my $tempdir = tempdir (CLEANUP => 1);
+    my $tempdir = tempdir (CLEANUP => ! $ENV{SS_NO_CLEANUP});
     $self->{data_root_path} = Path::Tiny::path ($tempdir);
     $self->{_tempdir} = $tempdir;
     $need_cleanup = 1;
