@@ -44,6 +44,7 @@ sub start ($$;%) {
       ca_cert_path => $ss->path ('ca-cert.pem'),
       ca_key_path => $ss->path ('ca-key.pem'),
     };
+    $data->{ca_cert_path} = $prepared->{ca_cert_path};
     
     my $cv = AE::cv;
     $cv->begin;
