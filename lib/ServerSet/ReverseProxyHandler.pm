@@ -48,6 +48,7 @@ sub start ($$;%) {
     my $cv = AE::cv;
     $cv->begin;
 
+    my $get_certs;
     my $map = $ss->{proxy_map};
     my $aliases = $ss->{proxy_aliases};
     my $code = sub {
@@ -56,12 +57,26 @@ sub start ($$;%) {
       my $aliased = $aliases->{$url->host->to_ascii};
       my $mapped = $map->{$aliased // $url->host->to_ascii};
       if (defined $mapped) {
-        my $x = $url->stringify;
-        $x =~ s/^https:/http:/g;
-        $args->{request}->{url} = Web::URL->parse_string ($x);
-        push @{$args->{request}->{headers}}, ['x-forwarded-scheme', $url->scheme];
-        $args->{client_options}->{server_connection}->{url} = $mapped;
-        return $args;
+        return $get_certs->then (sub {
+          my ($ca_cert, $ca_rsa, $ee_cert, $ee_rsa) = @{$_[0]};
+          my $x = $url->stringify;
+          if ($x =~ s/^https:/http:/g) {
+            $args->{upstream} = {
+              type => 'mitm',
+              allow_downgrade => 1,
+              tls => {
+                ca_cert => $ca_cert->to_pem,
+                cert => $ee_cert->to_pem,
+                key => $ee_rsa->to_pem,
+              },
+            };
+          }
+          $args->{request}->{url} = Web::URL->parse_string ($x);
+          push @{$args->{request}->{headers}},
+              ['x-forwarded-scheme', $url->scheme];
+          $args->{client_options}->{server_connection}->{url} = $mapped;
+          return $args;
+        });
       } elsif ($url->host->to_ascii eq 'resolver.ss.test') {
         my $u;
         my $t;
@@ -118,7 +133,7 @@ sub start ($$;%) {
     my $ca_cert_file = Promised::File->new_from_path ($ca_cert_path);
     my $ca_key_file = Promised::File->new_from_path ($ca_key_path);
     my $host = $prepared->{https_client_url}->host;
-    my $get_certs = Promise->all ([
+    $get_certs = Promise->all ([
       $ca_cert_file->is_file,
       $ca_key_file->is_file,
     ])->then (sub {
