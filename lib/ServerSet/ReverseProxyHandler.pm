@@ -76,10 +76,15 @@ sub start ($$;%) {
         }
       }
       if (defined $mapped) {
-        return $get_certs->then (sub {
-          my ($ca_cert, $ca_rsa, $ee_cert, $ee_rsa) = @{$_[0]};
-          my $x = $url->stringify;
-          if ($x =~ s/^https:/http:/g) {
+        my $x = $url->stringify;
+        $x =~ s/^https:/http:/g;
+        $args->{request}->{url} = Web::URL->parse_string ($x);
+        push @{$args->{request}->{headers}},
+            ['x-forwarded-scheme', $url->scheme];
+        $args->{client_options}->{server_connection}->{url} = $mapped;
+        if ($args->{request}->{method} eq 'CONNECT') {
+          return $get_certs->then (sub {
+            my ($ca_cert, $ca_rsa, $ee_cert, $ee_rsa) = @{$_[0]};
             $args->{upstream} = {
               type => 'mitm',
               allow_downgrade => 1,
@@ -89,13 +94,11 @@ sub start ($$;%) {
                 key => $ee_rsa->to_pem,
               },
             };
-          }
-          $args->{request}->{url} = Web::URL->parse_string ($x);
-          push @{$args->{request}->{headers}},
-              ['x-forwarded-scheme', $url->scheme];
-          $args->{client_options}->{server_connection}->{url} = $mapped;
+            return $args;
+          });
+        } else {
           return $args;
-        });
+        }
       } elsif ($url->host->to_ascii eq 'resolver.ss.test') {
         my $u;
         my $t;
