@@ -35,7 +35,9 @@ sub run ($$$;%) {
         sql_sha => {-in => [map { sha1_hex $_ } @sql]},
       }, fields => ['sql'], source_name => 'master');
     })->then (sub {
-      $done->{$_->{sql}} = 1 for @{$_[0]->all};
+      unless ($ENV{SS_MIGRATION_ALL}) {
+        $done->{$_->{sql}} = 1 for @{$_[0]->all};
+      }
       return promised_for {
         my $sql = shift;
         return $db->transaction->then (sub {
@@ -47,10 +49,17 @@ sub run ($$$;%) {
               sql => $sql,
               sql_sha => sha1_hex ($sql),
               timestamp => time,
-            }], source_name => 'master');
-          })->then (sub {
-            return $tr->commit;
+            }], source_name => 'master', duplicate => 'replace')->then (sub {
+              return $tr->commit;
             ## Note that `create` statements are not rollbacked by failure.
+            });
+          }, sub {
+            my $e = $_[0];
+            if ($ENV{SS_MIGRATION_ALL}) {
+              warn $e;
+              return;
+            }
+            die $e;
           });
         });
       } [grep { not $done->{$_} } @sql];

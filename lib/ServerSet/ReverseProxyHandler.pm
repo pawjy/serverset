@@ -50,12 +50,31 @@ sub start ($$;%) {
 
     my $get_certs;
     my $map = $ss->{proxy_map};
+    my $wmap = $ss->{proxy_wildcard_map};
     my $aliases = $ss->{proxy_aliases};
+    my $waliases = $ss->{proxy_wildcard_aliases};
     my $code = sub {
       my $args = $_[0];
       my $url = $args->{request}->{url};
-      my $aliased = $aliases->{$url->host->to_ascii};
-      my $mapped = $map->{$aliased // $url->host->to_ascii};
+      my $host = $url->host->to_ascii;
+      my $aliased = $aliases->{$host};
+      if (not defined $aliased) {
+        for (keys %{$waliases}) {
+          if ($host =~ /\A[0-9a-z-]+\.\Q$_\E\z/) {
+            $aliased = $waliases->{$_};
+            last;
+          }
+        }
+      }
+      my $mapped = $map->{$aliased // $host};
+      if (not defined $mapped) {
+        for (keys %{$wmap}) {
+          if ($host =~ /\A[0-9a-z-]+\.\Q$_\E\z/) {
+            $mapped = $wmap->{$_};
+            last;
+          }
+        }
+      }
       if (defined $mapped) {
         return $get_certs->then (sub {
           my ($ca_cert, $ca_rsa, $ee_cert, $ee_rsa) = @{$_[0]};
@@ -195,7 +214,9 @@ sub start ($$;%) {
           not_after => time + 30*24*60*60,
           serial_number => int rand 10000000,
           subject => {CN => $host->to_ascii},
-          san_hosts => [$host, map { $_->host } @{$prepared->{client_urls}}],
+          san_hosts => [$host,
+                        @{$prepared->{client_san_hosts} or []},
+                        map { $_->host } @{$prepared->{client_urls} or []}],
           ee => 1,
         )->then (sub {
           my $cert = $_[0];
