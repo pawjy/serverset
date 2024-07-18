@@ -14,6 +14,8 @@ sub get_keys ($) {
   return {
     %{$self->SUPER::get_keys},
     apploach_bearer => 'key',
+    vonage_key => 'key',
+    vonage_secret => 'key',
   };
 } # get_keys
 
@@ -33,6 +35,8 @@ my $Methods = {
       $config->{s3_bucket} = $storage_data->{bucket_domain};
       $config->{s3_form_url} = $storage_data->{form_client_url}->stringify;
       $config->{s3_file_url_prefix} = $storage_data->{file_root_client_url}->stringify;
+
+      $args->{edit_config}->($self, $config) if defined $args->{edit_config};
 
       $data->{local_dsn} = $self->dsn
           ('mysql', $mysqld_data->{local_dsn_options}->{apploach});
