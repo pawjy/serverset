@@ -4,6 +4,7 @@ AnyEvent::FileLock~0.06
 AnyEvent::Fork~1.32
 AnyEvent::HTTP~2.25
 AnyEvent::HTTPD~0.93
+AnyEvent::Socket
 Canary::Stability~2013
 Carp~1.50
 Crypt::OpenSSL::RSA~0.33
@@ -20,7 +21,7 @@ IO::AIO~4.81
 IO::FDPass~1.3
 MIME::Base32~1.303
 MIME::Base64~3.16
-Math::BigInt~2.004001
+Math::BigInt~2.005001
 Method::WeakCallback~0.04
 Net::SSLeay~1.94
 Object::Event~1.23
