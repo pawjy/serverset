@@ -4,7 +4,7 @@ AnyEvent::FileLock~0.06
 AnyEvent::Fork~1.32
 AnyEvent::HTTP~2.25
 AnyEvent::HTTPD~0.93
-AnyEvent::Handle
+AnyEvent::Socket
 Canary::Stability~2013
 Carp~1.50
 Crypt::OpenSSL::RSA~0.35
