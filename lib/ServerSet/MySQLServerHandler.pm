@@ -83,13 +83,35 @@ sub start ($$;%) {
               = $self->dsn ('mysql', $data->{docker_dsn_options}->{$dbname});
         } # $dbname
 
+    my $ver = $args->{mysql_version} // '';
+    my $MySQLImage = 'mariadb';
+    if ($ver eq 'mysql') {
+      $MySQLImage = 'mysql/mysql-server';
+      $ver = 'mysql8';
+    } elsif ($ver eq 'mysql8') {
+      $MySQLImage = 'mysql/mysql-server:8.0';
+    } elsif ($ver eq 'mysql5.6') {
+      $MySQLImage = 'mysql/mysql-server:5.6';
+    } elsif ($ver eq 'mariadb') {
+      #
+    } elsif (length $ver) {
+      die "Unknown |mysql_version|: |$ver|";
+    } else {
+      $ver = 'mariadb';
+    }
+    $data->{mysql_version} = $ver;
+
     my $data_path;
     my $temp_path = $self->path ('logs');
     return Promise->resolve->then (sub {
       return $self->regenerate_keys (['mysqld_dir_name_id'])
           if $s_args{try_count} > 1;
     })->then (sub {
-      $data_path = $self->path ('mysqld-data-' . $self->key ('mysqld_dir_name_id'));
+      if ($data->{mysql_version} eq 'mysql8') {
+        $data_path = $self->path ('mysqld8-data-' . $self->key ('mysqld_dir_name_id'));
+      } else {
+        $data_path = $self->path ('mysqld-data-' . $self->key ('mysqld_dir_name_id'));
+      }
       
       return Promise->all ([
         Promised::File->new_from_path ($data_path)->mkpath,
@@ -103,24 +125,6 @@ sub start ($$;%) {
       ]);
     })->then (sub {
       my $net_host = $args->{docker_net_host};
-
-      my $ver = $args->{mysql_version} // '';
-      my $MySQLImage = 'mariadb';
-      if ($ver eq 'mysql') {
-        $MySQLImage = 'mysql/mysql-server';
-        $ver = 'mysql8';
-      } elsif ($ver eq 'mysql8') {
-        $MySQLImage = 'mysql/mysql-server:8.0';
-      } elsif ($ver eq 'mysql5.6') {
-        $MySQLImage = 'mysql/mysql-server:5.6';
-      } elsif ($ver eq 'mariadb') {
-        #
-      } elsif (length $ver) {
-        die "Unknown |mysql_version|: |$ver|";
-      } else {
-        $ver = 'mariadb';
-      }
-      $data->{mysql_version} = $ver;
       
       return {
         image => $MySQLImage,
