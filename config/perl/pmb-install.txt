@@ -6,7 +6,7 @@ AnyEvent::HTTP~2.25
 AnyEvent::HTTPD~0.93
 AnyEvent::Socket
 Canary::Stability~2013
-Carp~1.50
+Carp::Heavy~1.50
 Crypt::OpenSSL::RSA~0.35
 Crypt::OpenSSL::Random~0.17
 Cwd~3.75
@@ -31,7 +31,7 @@ Scalar::Util~1.70
 Socket~2.040
 Term::ANSIColor~5.01
 Term::Table~0.025
-Test::Builder~1.302214
+Test::More~1.302214
 Time::HiRes~1.9764
 Time::Local~1.35
 URI~5.34
