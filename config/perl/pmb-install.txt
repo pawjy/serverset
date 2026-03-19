@@ -5,7 +5,7 @@ AnyEvent::Fork~1.32
 AnyEvent::HTTP~2.25
 AnyEvent::HTTPD~0.93
 Canary::Stability~2013
-Carp~1.50
+Carp::Heavy~1.50
 Crypt::OpenSSL::RSA~0.37
 Crypt::OpenSSL::Random~0.17
 Cwd~3.75
@@ -22,7 +22,7 @@ MIME::Base32~1.303
 MIME::Base64~3.16
 Math::BigInt~2.005003
 Method::WeakCallback~0.04
-Net::SSLeay~1.94
+Net::SSLeay
 Object::Event~1.23
 Path::Tiny~0.150
 Proc::FastSpawn~1.2
