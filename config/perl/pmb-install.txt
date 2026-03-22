@@ -22,7 +22,7 @@ MIME::Base32~1.303
 MIME::Base64~3.16
 Math::BigInt~2.005003
 Method::WeakCallback~0.04
-Net::SSLeay
+Net::SSLeay~1.96
 Object::Event~1.23
 Path::Tiny~0.150
 Proc::FastSpawn~1.2
