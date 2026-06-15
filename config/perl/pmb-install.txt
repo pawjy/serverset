@@ -31,8 +31,8 @@ Scalar::Util~1.70
 Socket~2.041
 Term::ANSIColor~5.01
 Term::Table~0.028
-Test::More~1.302221
+Test::Builder~1.302222
 Time::HiRes~1.9764
 Time::Local~1.35
-URI~5.34
+URI~5.35
 common::sense~3.75
