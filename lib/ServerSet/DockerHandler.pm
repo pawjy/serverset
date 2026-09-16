@@ -261,7 +261,7 @@ sub check_container_reachability ($$$) {
   
   my $docker = Promised::Command::Docker->new (
     image => 'quay.io/wakaba/docker-perl-app-base',
-    command => ['/app/perl', '-MAnyEvent::Socket', '-e', q{$cv=AE::cv;$s=tcp_server "0",shift,sub{($fh)=@_;print$fh"HTTP/1.0 200 OK\x0D\x0A\x0D\x0A";$cv->send};close $fh;$cv->recv}, $port],
+    command => ['/app/perl', '-MAnyEvent::Socket', '-e', q{$cv=AE::cv;$term=AE::signal TERM=>sub{$cv->send};$s=tcp_server "0",shift,sub{my($fh)=@_;print $fh "HTTP/1.0 200 OK\x0D\x0A\x0D\x0A";close $fh};$cv->recv}, $port],
     docker_run_options => [
       '--name' => $container_name,
     ],
