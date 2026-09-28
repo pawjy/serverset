@@ -298,6 +298,7 @@ sub heartbeat ($$$) {
   return unless defined $dsn;
   my $cmd = Promised::Command->new ([
     'mysqldump',
+    ($handler->{params}->{dump_single_transaction} ? '--single-transaction' : ()),
     '-A',
     '-h', $dsn->{host}->to_ascii,
     '-P', $dsn->{port},
@@ -339,6 +340,18 @@ sub heartbeat ($$$) {
 } # heartbeat
 
 1;
+
+=encoding utf8
+
+=head1 dump_single_transaction
+
+ハンドラのパラメータに C<dump_single_transaction =E<gt> 1> を指定すると、
+heartbeat の C<mysqldump> に C<--single-transaction> を追加します。
+省略時・偽の場合の引数、全データベースの採取、600 秒の間隔は変えません。
+InnoDB のスナップショットを利用してテスト中の更新を妨げにくくするための
+明示的な選択です。非トランザクショナルなテーブルや同時 DDL を含む場合の
+整合性を保証するものではありません。用途とテーブルエンジンを確認して
+有効にしてください。
 
 =head1 LICENSE
 
