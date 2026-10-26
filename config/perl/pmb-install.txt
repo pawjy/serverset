@@ -13,7 +13,7 @@ Crypt::OpenSSL::Random~0.17
 Cwd~3.75
 Data::Dumper~2.183
 Digest::SHA~6.04
-Encode~3.24
+Encode~3.25
 Exporter::Lite~0.09
 File::Path~2.18
 File::Temp~0.2312
