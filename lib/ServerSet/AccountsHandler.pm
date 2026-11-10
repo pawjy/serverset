@@ -65,7 +65,7 @@ my $Methods = {
       ])->then (sub {
         my $net_host = $args->{docker_net_host};
         return {
-          image => 'quay.io/wakaba/accounts',
+          image => $args->{image} // 'quay.io/wakaba/accounts',
           volumes => [
             $self->path ('accounts')->absolute . ':/config',
           ],
@@ -111,6 +111,15 @@ sub start ($$;%) {
 } # start
 
 1;
+
+=encoding utf-8
+
+=head1 OPTIONS
+
+C<start> の C<image> 引数で、起動する Accounts の Docker イメージを
+指定できます。タグまたは digest を含む参照をそのまま Docker に渡します。
+省略または C<undef> の場合は、従来どおり C<quay.io/wakaba/accounts> を使います。
+ポート、設定ファイル、環境変数、起動・終了処理は変更しません。
 
 =head1 LICENSE
 
